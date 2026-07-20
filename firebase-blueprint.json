@@ -1,0 +1,266 @@
+{
+  "entities": {
+    "Service": {
+      "title": "Service",
+      "description": "A capability or category of professional service work.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string", "enum": ["DIGITAL_PRESENCE", "AI_AUTOMATION", "GROWTH_TECH", "IT_INFRASTRUCTURE"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "category", "title", "description", "features", "active"]
+    },
+    "Offer": {
+      "title": "Offer",
+      "description": "A defined commercial solution package.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "category": { "type": "string", "enum": ["DIGITAL_PRESENCE", "AI_AUTOMATION", "GROWTH_TECH", "IT_INFRASTRUCTURE"] },
+        "description": { "type": "string" },
+        "problemSolved": { "type": "string" },
+        "targetAudience: ": { "type": "string" },
+        "deliverables": { "type": "array", "items": { "type": "string" } },
+        "outcomes": { "type": "array", "items": { "type": "string" } },
+        "pricingModel": { "type": "string" },
+        "startingPrice": { "type": "string" },
+        "active": { "type": "boolean" },
+        "cta": { "type": "string" }
+      },
+      "required": ["id", "name", "slug", "category", "description", "problemSolved", "deliverables", "outcomes", "pricingModel", "active", "cta"]
+    },
+    "Prospect": {
+      "title": "Prospect",
+      "description": "A lead, opportunity or audited local business.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "businessName": { "type": "string" },
+        "category": { "type": "string" },
+        "industry": { "type": "string" },
+        "location": { "type": "string" },
+        "websiteUrl": { "type": "string" },
+        "websiteStatus": { "type": "string" },
+        "websiteQuality": { "type": "string" },
+        "googleProfile": { "type": "string" },
+        "instagram": { "type": "string" },
+        "facebook": { "type": "string" },
+        "linkedin": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "source": { "type": "string" },
+        "researchDate": { "type": "string" },
+        "verificationDate": { "type": "string" },
+        "digitalGap": { "type": "string" },
+        "businessOpportunity": { "type": "string" },
+        "recommendedOfferId": { "type": "string" },
+        "leadScore": { "type": "integer" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" },
+        "nextAction": { "type": "string" }
+      },
+      "required": ["id", "businessName", "category", "industry", "location", "websiteStatus", "source", "researchDate", "leadScore", "priority", "status", "notes"]
+    },
+    "Audit": {
+      "title": "Audit",
+      "description": "A complete digital presence audit evaluation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "prospectId": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "overallScore": { "type": "integer" },
+        "strengths": { "type": "array", "items": { "type": "string" } },
+        "gaps": { "type": "array", "items": { "type": "string" } },
+        "missedOpportunity": { "type": "string" },
+        "recommendedSolution": { "type": "string" },
+        "recommendedOfferId": { "type": "string" }
+      },
+      "required": ["id", "prospectId", "createdAt", "overallScore", "strengths", "gaps", "missedOpportunity", "recommendedSolution"]
+    },
+    "Outreach": {
+      "title": "Outreach",
+      "description": "An outreach record for a prospect.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "prospectId": { "type": "string" },
+        "channel": { "type": "string", "enum": ["whatsapp", "instagram", "email"] },
+        "message": { "type": "string" },
+        "personalizationBasis": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Sent", "Opened", "Responded"] },
+        "response": { "type": "string" },
+        "followUpDate": { "type": "string" },
+        "sequenceStage": { "type": "string" }
+      },
+      "required": ["id", "prospectId", "channel", "message", "personalizationBasis", "date", "status", "sequenceStage"]
+    },
+    "Client": {
+      "title": "Client",
+      "description": "A converted business client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "businessName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "source": { "type": "string" },
+        "services": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["id", "name", "businessName", "email", "source", "services", "notes", "status"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A delivery project for a client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "offerId": { "type": "string" },
+        "description": { "type": "string" },
+        "startDate": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string" },
+        "value": { "type": "number" },
+        "paymentStatus": { "type": "string" },
+        "deliverables": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "clientId", "projectName", "description", "startDate", "dueDate", "status", "value", "paymentStatus", "deliverables", "notes"]
+    },
+    "CaseStudy": {
+      "title": "CaseStudy",
+      "description": "A published case study of an completed project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "clientName": { "type": "string" },
+        "problem": { "type": "string" },
+        "approach": { "type": "string" },
+        "solution": { "type": "string" },
+        "result": { "type": "string" },
+        "technologies": { "type": "array", "items": { "type": "string" } },
+        "images": { "type": "array", "items": { "type": "string" } },
+        "testimonial": { "type": "string" },
+        "publishedStatus": { "type": "string", "enum": ["Draft", "Published"] }
+      },
+      "required": ["id", "title", "clientName", "problem", "approach", "solution", "result", "technologies", "images", "publishedStatus"]
+    },
+    "CareerEntry": {
+      "title": "CareerEntry",
+      "description": "A career chronicle/evidence record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "role": { "type": "string" },
+        "organization": { "type": "string" },
+        "dateRange": { "type": "string" },
+        "problem": { "type": "string" },
+        "action": { "type": "string" },
+        "result": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "technologies": { "type": "array", "items": { "type": "string" } },
+        "evidence": { "type": "string" },
+        "relatedProjectId": { "type": "string" },
+        "cvSummary": { "type": "string" },
+        "bullets": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "title", "role", "organization", "dateRange", "problem", "action", "result", "skills", "technologies", "cvSummary", "bullets"]
+    },
+    "KnowledgeItem": {
+      "title": "KnowledgeItem",
+      "description": "SamuelOS reusable IP framework or insight.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "relatedServiceId": { "type": "string" },
+        "relatedProjectId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Published"] },
+        "publishedDate": { "type": "string" }
+      },
+      "required": ["id", "title", "type", "content", "tags", "status"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "An authorized system administrator.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin"] }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "System services portfolio"
+    },
+    "/offers/{offerId}": {
+      "schema": "Offer",
+      "description": "Commercial offers package catalog"
+    },
+    "/prospects/{prospectId}": {
+      "schema": "Prospect",
+      "description": "Active prospects lead pipeline"
+    },
+    "/audits/{auditId}": {
+      "schema": "Audit",
+      "description": "Generated or requested audits"
+    },
+    "/outreaches/{outreachId}": {
+      "schema": "Outreach",
+      "description": "Outreach history logs"
+    },
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Converted business client profiles"
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Active project delivery records"
+    },
+    "/case_studies/{caseStudyId}": {
+      "schema": "CaseStudy",
+      "description": "Public case studies"
+    },
+    "/career_entries/{careerId}": {
+      "schema": "CareerEntry",
+      "description": "Professional career chronicle database"
+    },
+    "/knowledge_items/{knowledgeId}": {
+      "schema": "KnowledgeItem",
+      "description": "SamuelOS intellectual property repository"
+    },
+    "/settings/global": {
+      "schema": "object",
+      "description": "Global operating settings"
+    },
+    "/admins/{uid}": {
+      "schema": "Admin",
+      "description": "Authorized administrators list"
+    }
+  }
+}

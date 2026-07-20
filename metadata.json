@@ -1,0 +1,6 @@
+{
+  "name": "SamuelOS Professional & Business OS",
+  "description": "Professional Operating System for Samuel Oluwadamilare, incorporating Accessmart Solutions commercial delivery, CRM pipeline, website audits, career engine, and knowledge base.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
