@@ -20,13 +20,14 @@ import OutreachEngine from './components/admin/OutreachEngine';
 import ClientsProjects from './components/admin/ClientsProjects';
 import CareerEngineView from './components/admin/CareerEngineView';
 import KnowledgeBaseView from './components/admin/KnowledgeBaseView';
+import RevenueCampaign from './components/admin/RevenueCampaign';
 
 import { api } from './lib/api';
 import { Prospect } from './types';
 import { auth, googleProvider, signInWithEmailAndPassword, signInWithPopup, onIdTokenChanged, signOut } from './lib/firebase';
 import { 
   Shield, User, Lock, Terminal, LayoutDashboard, Sparkles, Send, 
-  Layers, Users, CheckSquare, BookOpen, Key, Loader2, AlertCircle, X, HelpCircle 
+  Layers, Users, CheckSquare, BookOpen, Key, Loader2, AlertCircle, X, HelpCircle, TrendingUp 
 } from 'lucide-react';
 
 export default function App() {
@@ -239,6 +240,7 @@ export default function App() {
                 { key: 'prospects', label: 'Prospect Intelligence', icon: Users },
                 { key: 'closer_agent', label: 'Closer Agent AI', icon: Shield },
                 { key: 'crm', label: 'Pipeline CRM', icon: Layers },
+                { key: 'revenue', label: 'Campaign & Revenue', icon: TrendingUp },
                 { key: 'audits', label: 'Forensic Audits', icon: Sparkles },
                 { key: 'outreach', label: 'Outreach Copier', icon: Send },
                 { key: 'delivery', label: 'Clients & Delivery', icon: CheckSquare },
@@ -373,6 +375,13 @@ export default function App() {
                   prospects={prospects} 
                   selectedProspect={selectedProspectForOutreach}
                   onClearSelectedProspect={() => setSelectedProspectForOutreach(null)}
+                />
+              )}
+
+              {activeAdminTab === 'revenue' && (
+                <RevenueCampaign 
+                  prospects={prospects}
+                  onRefresh={loadProspects}
                 />
               )}
 

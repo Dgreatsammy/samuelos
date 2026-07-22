@@ -13,7 +13,7 @@ import {
   deleteDoc as clientDeleteDoc 
 } from 'firebase/firestore';
 import { 
-  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, WebsiteStatus, PipelineStatus
+  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, WebsiteStatus, PipelineStatus, DiscoveryMeeting, Proposal
 } from '../src/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -1229,6 +1229,121 @@ export class Database {
       return this.saveAdmin(uid, adminData);
     }
   }
+
+  // Discovery Meetings Operations
+  async getDiscoveryMeetings(): Promise<DiscoveryMeeting[]> {
+    if (useLocalFallback) return loadLocalCollection('discovery_meetings', []);
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return loadLocalCollection('discovery_meetings', []);
+      const snap = await firestore.collection('discovery_meetings').get();
+      return snap.docs.map(doc => doc.data() as DiscoveryMeeting);
+    } catch (e: any) {
+      console.warn("Firestore error in getDiscoveryMeetings, falling back:", e.message || e);
+      useLocalFallback = true;
+      return loadLocalCollection('discovery_meetings', []);
+    }
+  }
+
+  async saveDiscoveryMeeting(meeting: DiscoveryMeeting): Promise<DiscoveryMeeting> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<DiscoveryMeeting[]>('discovery_meetings', []);
+      const index = list.findIndex(item => item.id === meeting.id);
+      if (index >= 0) {
+        list[index] = meeting;
+      } else {
+        list.push(meeting);
+      }
+      await saveLocalCollection('discovery_meetings', list);
+      return meeting;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.saveDiscoveryMeeting(meeting);
+      await firestore.collection('discovery_meetings').doc(meeting.id).set(meeting, { merge: true });
+      return meeting;
+    } catch (e: any) {
+      console.warn("Firestore error in saveDiscoveryMeeting, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.saveDiscoveryMeeting(meeting);
+    }
+  }
+
+  async deleteDiscoveryMeeting(id: string): Promise<void> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<DiscoveryMeeting[]>('discovery_meetings', []);
+      const filtered = list.filter(item => item.id !== id);
+      await saveLocalCollection('discovery_meetings', filtered);
+      return;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.deleteDiscoveryMeeting(id);
+      await firestore.collection('discovery_meetings').doc(id).delete();
+    } catch (e: any) {
+      console.warn("Firestore error in deleteDiscoveryMeeting, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.deleteDiscoveryMeeting(id);
+    }
+  }
+
+  // Proposals Operations
+  async getProposals(): Promise<Proposal[]> {
+    if (useLocalFallback) return loadLocalCollection('proposals', []);
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return loadLocalCollection('proposals', []);
+      const snap = await firestore.collection('proposals').get();
+      return snap.docs.map(doc => doc.data() as Proposal);
+    } catch (e: any) {
+      console.warn("Firestore error in getProposals, falling back:", e.message || e);
+      useLocalFallback = true;
+      return loadLocalCollection('proposals', []);
+    }
+  }
+
+  async saveProposal(proposal: Proposal): Promise<Proposal> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<Proposal[]>('proposals', []);
+      const index = list.findIndex(item => item.id === proposal.id);
+      if (index >= 0) {
+        list[index] = proposal;
+      } else {
+        list.push(proposal);
+      }
+      await saveLocalCollection('proposals', list);
+      return proposal;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.saveProposal(proposal);
+      await firestore.collection('proposals').doc(proposal.id).set(proposal, { merge: true });
+      return proposal;
+    } catch (e: any) {
+      console.warn("Firestore error in saveProposal, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.saveProposal(proposal);
+    }
+  }
+
+  async deleteProposal(id: string): Promise<void> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<Proposal[]>('proposals', []);
+      const filtered = list.filter(item => item.id !== id);
+      await saveLocalCollection('proposals', filtered);
+      return;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.deleteProposal(id);
+      await firestore.collection('proposals').doc(id).delete();
+    } catch (e: any) {
+      console.warn("Firestore error in deleteProposal, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.deleteProposal(id);
+    }
+  }
+
 }
 
 export const db = new Database();

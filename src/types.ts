@@ -275,3 +275,45 @@ export interface KnowledgeItem {
   status: 'Draft' | 'Published';
   publishedDate?: string;
 }
+
+export interface DiscoveryMeeting {
+  id: string;
+  prospectId: string;
+  businessName: string;
+  date: string;
+  time: string;
+  channel: 'whatsapp' | 'instagram' | 'email' | 'zoom' | 'google-meet';
+  meetingLink?: string;
+  decisionMaker: string;
+  businessNeed: string;
+  currentSystem: string;
+  painPoints: string;
+  desiredOutcome: string;
+  budget: string;
+  timeline: string;
+  decisionProcess: string;
+  notes: string;
+  status: 'Scheduled' | 'Completed' | 'Cancelled';
+  isDemo?: boolean;
+}
+
+export interface Proposal {
+  id: string;
+  prospectId: string;
+  businessName: string;
+  clientName: string;
+  problem: string;
+  recommendedSolution: string;
+  scope: string[];
+  deliverables: string[];
+  timeline: string;
+  price: number;
+  currency: 'NGN' | 'USD';
+  paymentTerms: string;
+  validityPeriod: string;
+  nextStep: string;
+  status: 'DRAFT' | 'SENT' | 'NEGOTIATION' | 'WON' | 'LOST';
+  createdAt: string;
+  isDemo?: boolean;
+}
+

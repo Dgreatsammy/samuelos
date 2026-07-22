@@ -744,6 +744,40 @@ apiRouter.post('/settings', requireAdmin, async (req: Request, res: Response) =>
   res.json(saved);
 });
 
+// Discovery Meetings API
+apiRouter.get('/discovery-meetings', requireAdmin, async (req: Request, res: Response) => {
+  const list = await db.getDiscoveryMeetings();
+  res.json(list);
+});
+
+apiRouter.post('/discovery-meetings', requireAdmin, async (req: Request, res: Response) => {
+  const meeting = req.body;
+  const saved = await db.saveDiscoveryMeeting(meeting);
+  res.json(saved);
+});
+
+apiRouter.delete('/discovery-meetings/:id', requireAdmin, async (req: Request, res: Response) => {
+  await db.deleteDiscoveryMeeting(req.params.id);
+  res.json({ success: true });
+});
+
+// Proposals API
+apiRouter.get('/proposals', requireAdmin, async (req: Request, res: Response) => {
+  const list = await db.getProposals();
+  res.json(list);
+});
+
+apiRouter.post('/proposals', requireAdmin, async (req: Request, res: Response) => {
+  const proposal = req.body;
+  const saved = await db.saveProposal(proposal);
+  res.json(saved);
+});
+
+apiRouter.delete('/proposals/:id', requireAdmin, async (req: Request, res: Response) => {
+  await db.deleteProposal(req.params.id);
+  res.json({ success: true });
+});
+
 // Global API error handler
 apiRouter.use((err: any, req: Request, res: Response, next: any) => {
   console.error(`[API Global Error Handler] Failure on ${req.method} ${req.path}:`, err);

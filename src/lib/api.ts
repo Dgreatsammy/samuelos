@@ -1,5 +1,5 @@
 import { 
-  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem 
+  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, DiscoveryMeeting, Proposal 
 } from '../types';
 import { auth } from './firebase';
 
@@ -253,5 +253,33 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(settings),
     });
+  },
+
+  // Discovery Meetings
+  async getDiscoveryMeetings(): Promise<DiscoveryMeeting[]> {
+    return fetchAPI<DiscoveryMeeting[]>('/discovery-meetings');
+  },
+  async saveDiscoveryMeeting(meeting: DiscoveryMeeting): Promise<DiscoveryMeeting> {
+    return fetchAPI<DiscoveryMeeting>('/discovery-meetings', {
+      method: 'POST',
+      body: JSON.stringify(meeting),
+    });
+  },
+  async deleteDiscoveryMeeting(id: string): Promise<void> {
+    return fetchAPI(`/discovery-meetings/${id}`, { method: 'DELETE' });
+  },
+
+  // Proposals
+  async getProposals(): Promise<Proposal[]> {
+    return fetchAPI<Proposal[]>('/proposals');
+  },
+  async saveProposal(proposal: Proposal): Promise<Proposal> {
+    return fetchAPI<Proposal>('/proposals', {
+      method: 'POST',
+      body: JSON.stringify(proposal),
+    });
+  },
+  async deleteProposal(id: string): Promise<void> {
+    return fetchAPI(`/proposals/${id}`, { method: 'DELETE' });
   }
 };
