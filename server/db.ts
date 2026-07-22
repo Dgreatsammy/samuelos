@@ -19,11 +19,26 @@ import {
 const DATA_DIR = path.join(process.cwd(), 'data');
 
 // Load config synchronously at module load time
-const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
 let config: any = {};
 try {
-  if (fsSync.existsSync(configPath)) {
-    const fileData = fsSync.readFileSync(configPath, 'utf-8');
+  let resolvedConfigPath = '';
+  const possiblePaths = [
+    path.join(process.cwd(), 'firebase-applet-config.json'),
+  ];
+  try {
+    possiblePaths.push(path.join(__dirname, '..', 'firebase-applet-config.json'));
+    possiblePaths.push(path.join(__dirname, 'firebase-applet-config.json'));
+  } catch (err) {}
+
+  for (const p of possiblePaths) {
+    if (fsSync.existsSync(p)) {
+      resolvedConfigPath = p;
+      break;
+    }
+  }
+
+  if (resolvedConfigPath) {
+    const fileData = fsSync.readFileSync(resolvedConfigPath, 'utf-8');
     config = JSON.parse(fileData);
   }
 } catch (e) {

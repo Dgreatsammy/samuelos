@@ -49,11 +49,26 @@ function calculateLeadScore(details: ScoreDetails): { score: number; priority: '
 }
 
 // Load config synchronously at module load time for API Key
-const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
 let webApiKey = '';
 try {
-  if (fsSync.existsSync(configPath)) {
-    const configData = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'));
+  let resolvedConfigPath = '';
+  const possiblePaths = [
+    path.join(process.cwd(), 'firebase-applet-config.json'),
+  ];
+  try {
+    possiblePaths.push(path.join(__dirname, '..', 'firebase-applet-config.json'));
+    possiblePaths.push(path.join(__dirname, 'firebase-applet-config.json'));
+  } catch (err) {}
+
+  for (const p of possiblePaths) {
+    if (fsSync.existsSync(p)) {
+      resolvedConfigPath = p;
+      break;
+    }
+  }
+
+  if (resolvedConfigPath) {
+    const configData = JSON.parse(fsSync.readFileSync(resolvedConfigPath, 'utf-8'));
     webApiKey = configData.apiKey;
   }
 } catch (e) {

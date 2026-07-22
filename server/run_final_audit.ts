@@ -81,7 +81,7 @@ async function runFinalAudit() {
         "Physical office location is unvisited, listed on directories but lacks street-view validation.",
         "Corporate registration status with CAC needs formal confirmation."
       ],
-      outreachStatus: 'READY_FOR_APPROVAL',
+      outreachStatus: 'AWAITING_EVIDENCE_VERIFICATION',
       scoreDetails: {
         digitalGap: 27,
         businessPotential: 15,
@@ -210,17 +210,18 @@ async function runFinalAudit() {
       }
     },
     'p-ng-5': {
-      evidenceStatus: 'VERIFIED',
-      evidenceNotes: "Premium dine-in venue Adeola Odeku verified. Website is static with zero booking mechanisms or table reservation software.",
+      evidenceStatus: 'PARTIALLY_VERIFIED',
+      evidenceNotes: "Premium dine-in venue Adeola Odeku verified. However, reported website cafevanessa-test.com is a placeholder/test domain and is not verified as a genuine production domain belonging to the business.",
       verificationSource: "Manual navigation of cafevanessa-test.com and live Google Local reviews check",
       dataConfidenceScore: 92,
       verifiedFindings: [
-        "Upscale restaurant is fully active at 1089B Adeola Odeku, VI.",
-        "Website cafevanessa-test.com resolves, SSL is active.",
-        "No table reservation widget or private event intake flow exists; users are directed to dial raw numbers."
+        "Upscale restaurant is fully active at 1089B Adeola Odeku, VI."
       ],
-      unverifiedFindings: [],
-      outreachStatus: 'READY_FOR_APPROVAL',
+      unverifiedFindings: [
+        "Whether they have a genuine production website on a custom production domain.",
+        "No table reservation widget or private event intake flow exists; users are directed to dial raw numbers on cafevanessa-test.com."
+      ],
+      outreachStatus: 'AWAITING_EVIDENCE_VERIFICATION',
       scoreDetails: {
         digitalGap: 25,
         businessPotential: 18,
@@ -249,17 +250,18 @@ async function runFinalAudit() {
       }
     },
     'p-ng-6': {
-      evidenceStatus: 'VERIFIED',
-      evidenceNotes: "Premium corporate Admiralty road outlet verified. Website has a static corporate catering page but lacks self-service calculators or intake systems.",
+      evidenceStatus: 'PARTIALLY_VERIFIED',
+      evidenceNotes: "Premium corporate Admiralty road outlet verified. However, reported website rootsfoods-test.com is a placeholder/test domain and is not verified as a genuine production domain belonging to the business.",
       verificationSource: "Direct portal inspection on rootsfoods-test.com & on-site Admiralty road verification",
       dataConfidenceScore: 94,
       verifiedFindings: [
-        "Roots Foods physical outlet is highly active on Admiralty Road, Lekki Phase 1.",
-        "Website rootsfoods-test.com resolves and displays corporate packages.",
-        "No automated subscription portal or menu builder is active; users must draft manual emails."
+        "Roots Foods physical outlet is highly active on Admiralty Road, Lekki Phase 1."
       ],
-      unverifiedFindings: [],
-      outreachStatus: 'READY_FOR_APPROVAL',
+      unverifiedFindings: [
+        "Whether they have a genuine production website on a custom production domain.",
+        "No automated subscription portal or menu builder is active; users must draft manual emails on rootsfoods-test.com."
+      ],
+      outreachStatus: 'AWAITING_EVIDENCE_VERIFICATION',
       scoreDetails: {
         digitalGap: 26,
         businessPotential: 18,
