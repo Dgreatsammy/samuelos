@@ -3,7 +3,7 @@ import { Prospect, WebsiteStatus, PipelineStatus } from '../../types';
 import { api } from '../../lib/api';
 import { 
   Plus, Edit2, Trash2, Search, Filter, Upload, Download, Sparkles, FileText, Check, AlertCircle, X, CheckSquare, Loader2, RefreshCw, Send,
-  ArrowUpDown, ChevronLeft, ChevronRight 
+  ArrowUpDown, ChevronLeft, ChevronRight, Shield
 } from 'lucide-react';
 
 interface ProspectsTableProps {
@@ -11,10 +11,11 @@ interface ProspectsTableProps {
   onRefresh: () => void;
   onSelectProspectForAudit: (p: Prospect) => void;
   onSelectProspectForOutreach: (p: Prospect) => void;
+  onSelectProspectForCloser?: (p: Prospect) => void;
 }
 
 export default function ProspectsTable({ 
-  prospects, onRefresh, onSelectProspectForAudit, onSelectProspectForOutreach 
+  prospects, onRefresh, onSelectProspectForAudit, onSelectProspectForOutreach, onSelectProspectForCloser 
 }: ProspectsTableProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -577,6 +578,15 @@ export default function ProspectsTable({
                         >
                           <FileText className="w-3.5 h-3.5" />
                         </button>
+                        {onSelectProspectForCloser && (
+                          <button
+                            onClick={() => onSelectProspectForCloser(p)}
+                            className="p-1.5 rounded bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-600 cursor-pointer"
+                            title="Execute Closer Agent AI Diagnosis"
+                          >
+                            <Shield className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => onSelectProspectForOutreach(p)}
                           className="p-1.5 rounded bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-600 cursor-pointer"

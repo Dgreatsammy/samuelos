@@ -14,6 +14,7 @@ import Contact from './components/public/Contact';
 // Admin panel tabs
 import ProspectsTable from './components/admin/ProspectsTable';
 import CRMBoard from './components/admin/CRMBoard';
+import CloserAgent from './components/admin/CloserAgent';
 import AuditManager from './components/admin/AuditManager';
 import OutreachEngine from './components/admin/OutreachEngine';
 import ClientsProjects from './components/admin/ClientsProjects';
@@ -22,7 +23,7 @@ import KnowledgeBaseView from './components/admin/KnowledgeBaseView';
 
 import { api } from './lib/api';
 import { Prospect } from './types';
-import { auth, googleProvider, signInWithEmailAndPassword, signInWithPopup } from './lib/firebase';
+import { auth, googleProvider, signInWithEmailAndPassword, signInWithPopup, onIdTokenChanged, signOut } from './lib/firebase';
 import { 
   Shield, User, Lock, Terminal, LayoutDashboard, Sparkles, Send, 
   Layers, Users, CheckSquare, BookOpen, Key, Loader2, AlertCircle, X, HelpCircle 
@@ -47,6 +48,7 @@ export default function App() {
   // Cross-trigger props
   const [selectedProspectForAudit, setSelectedProspectForAudit] = useState<Prospect | null>(null);
   const [selectedProspectForOutreach, setSelectedProspectForOutreach] = useState<Prospect | null>(null);
+  const [selectedProspectForCloser, setSelectedProspectForCloser] = useState<Prospect | null>(null);
 
   const loadProspects = async () => {
     setLoadingProspects(true);
@@ -61,12 +63,33 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Check if user is already authenticated
-    const token = localStorage.getItem('samuel_os_token');
-    if (token) {
-      setIsAdmin(true);
-      loadProspects();
-    }
+    // Monitor ID token changes (including auto-refresh from Firebase)
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const idToken = await user.getIdToken();
+          localStorage.setItem('samuel_os_token', idToken);
+          setIsAdmin(true);
+          loadProspects();
+        } catch (err) {
+          console.error('Failed to get fresh ID token:', err);
+        }
+      } else {
+        // If there is no active Firebase session, check if we're using a fallback or mock session
+        const token = localStorage.getItem('samuel_os_token');
+        if (token) {
+          // If the token is a mock token or shorter custom token, we preserve local status
+          if (token.startsWith('samuelos-mock-session-token') || (!token.includes('.') && token.length < 50)) {
+            setIsAdmin(true);
+            loadProspects();
+            return;
+          }
+        }
+        setIsAdmin(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -138,6 +161,7 @@ export default function App() {
     localStorage.removeItem('samuel_os_token');
     setIsAdmin(false);
     setCurrentView('home');
+    signOut(auth).catch(err => console.error('Error signing out from Firebase:', err));
   };
 
   const handleTriggerAuditTab = (p: Prospect) => {
@@ -148,6 +172,11 @@ export default function App() {
   const handleTriggerOutreachTab = (p: Prospect) => {
     setSelectedProspectForOutreach(p);
     setActiveAdminTab('outreach');
+  };
+
+  const handleTriggerCloserTab = (p: Prospect) => {
+    setSelectedProspectForCloser(p);
+    setActiveAdminTab('closer_agent');
   };
 
   return (
@@ -208,6 +237,7 @@ export default function App() {
               {[
                 { key: 'overview', label: 'Console Overview', icon: LayoutDashboard },
                 { key: 'prospects', label: 'Prospect Intelligence', icon: Users },
+                { key: 'closer_agent', label: 'Closer Agent AI', icon: Shield },
                 { key: 'crm', label: 'Pipeline CRM', icon: Layers },
                 { key: 'audits', label: 'Forensic Audits', icon: Sparkles },
                 { key: 'outreach', label: 'Outreach Copier', icon: Send },
@@ -310,6 +340,7 @@ export default function App() {
                   onRefresh={loadProspects} 
                   onSelectProspectForAudit={handleTriggerAuditTab}
                   onSelectProspectForOutreach={handleTriggerOutreachTab}
+                  onSelectProspectForCloser={handleTriggerCloserTab}
                 />
               )}
 
@@ -317,6 +348,15 @@ export default function App() {
                 <CRMBoard 
                   prospects={prospects} 
                   onRefresh={loadProspects} 
+                />
+              )}
+
+              {activeAdminTab === 'closer_agent' && (
+                <CloserAgent 
+                  prospects={prospects} 
+                  onRefresh={loadProspects}
+                  selectedProspect={selectedProspectForCloser}
+                  onClearSelectedProspect={() => setSelectedProspectForCloser(null)}
                 />
               )}
 

@@ -135,6 +135,42 @@ export interface Audit {
   dataConfidenceScore?: number;
 }
 
+export type OutreachStatus =
+  | 'DRAFT'
+  | 'AWAITING_EVIDENCE_VERIFICATION'
+  | 'READY_FOR_APPROVAL'
+  | 'APPROVED'
+  | 'SENT'
+  | 'RESPONSE_RECEIVED'
+  | 'FOLLOW_UP_DUE'
+  | 'MEETING_BOOKED'
+  | 'CLOSED_WON'
+  | 'CLOSED_LOST'
+  | 'Draft'
+  | 'Awaiting_Evidence_Verification'
+  | 'Ready_For_Approval'
+  | 'Approved'
+  | 'Sent'
+  | 'Responded'
+  | 'Opened';
+
+export interface OutreachAuditLog {
+  previous_status: string;
+  new_status: string;
+  changed_by: string;
+  timestamp: string;
+  reason?: string;
+}
+
+export interface OutreachClaim {
+  id: string;
+  claim_text: string;
+  claim_type: 'VERIFIED_FACT' | 'OBSERVATION' | 'INFERENCE' | 'AI_GENERATED_HYPOTHESIS' | 'NEEDS_VERIFICATION';
+  evidence_source: string;
+  evidence_reference: string;
+  verification_status: 'VERIFIED' | 'PARTIALLY_VERIFIED' | 'NEEDS_VERIFICATION' | 'UNVERIFIED';
+}
+
 export interface Outreach {
   id: string;
   prospectId: string;
@@ -142,10 +178,12 @@ export interface Outreach {
   message: string;
   personalizationBasis: string;
   date: string;
-  status: 'Draft' | 'Sent' | 'Opened' | 'Responded' | 'Awaiting_Evidence_Verification' | 'Ready_For_Approval' | 'Approved' | 'AWAITING_EVIDENCE_VERIFICATION' | 'READY_FOR_APPROVAL' | 'APPROVED' | 'SENT';
+  status: OutreachStatus;
   response?: string;
   followUpDate?: string;
   sequenceStage: 'Initial' | 'Follow-up 1' | 'Follow-up 2' | 'Closed/Nurture';
+  claims?: OutreachClaim[];
+  auditLogs?: OutreachAuditLog[];
 }
 
 export interface Client {
@@ -159,6 +197,11 @@ export interface Client {
   services: string[];
   notes: string;
   status: 'Active' | 'Inactive';
+  isDemo?: boolean;
+  dataOrigin?: string;
+  originatingProspectId?: string;
+  convertedAt?: string;
+  convertedBy?: string;
 }
 
 export interface Project {
@@ -177,6 +220,8 @@ export interface Project {
   skills?: string[];
   technologies?: string[];
   knowledgeItemIds?: string[];
+  isDemo?: boolean;
+  dataOrigin?: string;
 }
 
 export interface CaseStudy {
@@ -192,6 +237,8 @@ export interface CaseStudy {
   images: string[];
   testimonial?: string;
   publishedStatus: 'Draft' | 'Published';
+  isDemo?: boolean;
+  dataOrigin?: string;
 }
 
 export interface CareerEntry {
@@ -211,6 +258,8 @@ export interface CareerEntry {
   bullets: string[];
   linkedInAchievement?: string;
   interviewStory?: string;
+  isDemo?: boolean;
+  dataOrigin?: string;
 }
 
 export type KnowledgeType = 'Framework' | 'Research' | 'Article' | 'Insight' | 'Lesson' | 'Playbook' | 'Case Study' | 'SOP';

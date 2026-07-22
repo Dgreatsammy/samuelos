@@ -6,6 +6,7 @@ import {
   GoogleAuthProvider, 
   signOut, 
   onAuthStateChanged,
+  onIdTokenChanged,
   User
 } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -19,6 +20,7 @@ export {
   signInWithEmailAndPassword, 
   signInWithPopup, 
   signOut, 
-  onAuthStateChanged 
+  onAuthStateChanged,
+  onIdTokenChanged
 };
 export type { User };

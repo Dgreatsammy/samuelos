@@ -8,6 +8,7 @@ import {
   generatePersonalizedOutreachAI, 
   generateCareerEvidenceAI 
 } from './gemini';
+import { runCloserAgentAnalysis } from './closer_agent_service';
 import { Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, ScoreDetails } from '../src/types';
 
 export const apiRouter = Router();
@@ -284,6 +285,49 @@ apiRouter.delete('/prospects/:id', requireAdmin, async (req: Request, res: Respo
   res.json({ success: true });
 });
 
+// Manual Prospect-to-Client Conversion Endpoint
+apiRouter.post('/prospects/:id/convert-to-client', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { clientName, contactEmail, contactPhone, notes } = req.body;
+    
+    const prospects = await db.getProspects();
+    const prospect = prospects.find(p => p.id === id);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: 'Prospect not found' });
+    }
+
+    const userEmail = (req as any).user?.email || 'Samuel Oluwadamilare';
+
+    // 1. Update prospect status to 'Won'
+    prospect.status = 'Won';
+    await db.saveProspect(prospect);
+
+    // 2. Create client record with explicit human authorization metadata
+    const newClient: Client = {
+      id: `c-${Date.now()}`,
+      name: clientName || prospect.businessName,
+      businessName: prospect.businessName,
+      email: contactEmail || prospect.email || '',
+      phone: contactPhone || prospect.phone || '',
+      source: prospect.source || 'Outreach campaign',
+      services: [prospect.recommendedOfferId || 'o-audit'],
+      notes: notes || `Converted from prospect ${id}. Notes: ${prospect.notes || ''}`,
+      status: 'Active',
+      isDemo: false,
+      dataOrigin: `prospect-conversion-${id}-${Date.now()}`,
+      originatingProspectId: id,
+      convertedAt: new Date().toISOString(),
+      convertedBy: userEmail
+    };
+
+    const savedClient = await db.saveClient(newClient);
+    res.json({ success: true, client: savedClient, prospect });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to convert prospect' });
+  }
+});
+
 // Bulk Import Prospects API
 apiRouter.post('/prospects/import', requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -485,7 +529,53 @@ apiRouter.get('/outreaches', requireAdmin, async (req: Request, res: Response) =
 });
 
 apiRouter.post('/outreaches', requireAdmin, async (req: Request, res: Response) => {
-  const outreach = req.body;
+  const outreach = req.body as Outreach;
+  
+  const existingList = await db.getOutreaches();
+  const existing = existingList.find(o => o.id === outreach.id);
+  
+  const userEmail = (req as any).user?.email || 'Samuel Oluwadamilare';
+
+  if (existing) {
+    outreach.auditLogs = existing.auditLogs || [];
+    if (existing.status !== outreach.status) {
+      outreach.auditLogs.push({
+        previous_status: existing.status,
+        new_status: outreach.status,
+        changed_by: userEmail,
+        timestamp: new Date().toISOString(),
+        reason: req.body.transitionReason || `Status manually transitioned to ${outreach.status}`
+      });
+    }
+  } else {
+    outreach.auditLogs = outreach.auditLogs || [];
+    outreach.auditLogs.push({
+      previous_status: 'INITIAL_CREATION',
+      new_status: outreach.status,
+      changed_by: userEmail,
+      timestamp: new Date().toISOString(),
+      reason: 'Outreach draft generated'
+    });
+  }
+
+  // Enforce rule: A draft containing any unverified claim MUST remain/be forced to AWAITING_EVIDENCE_VERIFICATION
+  if (outreach.claims && outreach.claims.length > 0) {
+    const hasUnverified = outreach.claims.some(
+      c => c.verification_status !== 'VERIFIED'
+    );
+    if (hasUnverified && (outreach.status === 'READY_FOR_APPROVAL' || outreach.status === 'APPROVED')) {
+      const attemptedStatus = outreach.status;
+      outreach.status = 'AWAITING_EVIDENCE_VERIFICATION';
+      outreach.auditLogs.push({
+        previous_status: attemptedStatus,
+        new_status: 'AWAITING_EVIDENCE_VERIFICATION',
+        changed_by: 'System Guard (Evidence Control)',
+        timestamp: new Date().toISOString(),
+        reason: 'Auto-locked: Draft contains one or more unverified facts/claims.'
+      });
+    }
+  }
+
   const saved = await db.saveOutreach(outreach);
   res.json(saved);
 });
@@ -508,6 +598,31 @@ apiRouter.post('/outreaches/generate', requireAdmin, async (req: Request, res: R
     res.json({ success: true, message });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to generate outreach message' });
+  }
+});
+
+// Closer Agent AI Analysis API
+apiRouter.post('/agents/closer/analyze', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { prospectId } = req.body;
+    if (!prospectId) {
+      return res.status(400).json({ success: false, message: 'prospectId is required' });
+    }
+
+    const prospects = await db.getProspects();
+    const prospect = prospects.find(p => p.id === prospectId);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: 'Prospect not found' });
+    }
+
+    const audits = await db.getAudits();
+    const audit = audits.find(a => a.prospectId === prospectId);
+
+    const analysisResult = await runCloserAgentAnalysis(prospect, audit);
+    res.json({ success: true, analysis: analysisResult });
+  } catch (error: any) {
+    console.error('Closer Agent analyze route failed:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to analyze prospect with Closer Agent' });
   }
 });
 

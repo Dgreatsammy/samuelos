@@ -15,6 +15,10 @@ export default function ClientsProjects({ prospects, onRefreshProspects }: Clien
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [includeDemo, setIncludeDemo] = useState(false);
+
+  const filteredClients = includeDemo ? clients : clients.filter(c => !c.isDemo);
+  const filteredProjects = includeDemo ? projects : projects.filter(p => !p.isDemo);
 
   // Modals
   const [showClientModal, setShowClientModal] = useState(false);
@@ -399,13 +403,40 @@ export default function ClientsProjects({ prospects, onRefreshProspects }: Clien
   return (
     <div id="clients-projects-view" className="space-y-8 text-left">
       
+      {/* Demo / Sandbox Mode Explicit Opt-In */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 border border-slate-150 bg-slate-50/50 rounded-2xl">
+        <div className="space-y-0.5">
+          <h4 className="font-display font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+            Database Isolation & Safety
+          </h4>
+          <p className="text-slate-500 text-xs font-light">
+            Toggle demo/sample sandbox data. Unchecked means production metrics and reporting reflect <strong>strictly genuine</strong> operational records only.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={includeDemo}
+              onChange={(e) => setIncludeDemo(e.target.checked)}
+            />
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-slate-900"></div>
+            <span className="ml-2 font-mono text-xs font-bold text-slate-700">
+              {includeDemo ? "Sandbox On" : "Sandbox Off"}
+            </span>
+          </label>
+        </div>
+      </div>
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {[
-          { title: 'Total Clients', value: clients.length, icon: Users, color: 'text-blue-600 bg-blue-50 border-blue-100' },
-          { title: 'Active Projects', value: projects.filter(p => p.status !== 'Completed').length, icon: Layers, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
-          { title: 'Billed Value', value: `$${projects.reduce((acc, p) => acc + p.value, 0).toLocaleString()}`, icon: DollarSign, color: 'text-slate-600 bg-slate-100 border-slate-200' },
-          { title: 'Active Contract Value', value: `$${projects.reduce((acc, p) => acc + p.value, 0).toLocaleString()}`, icon: DollarSign, color: 'text-slate-600 bg-slate-100 border-slate-200' },
+          { title: 'Total Clients', value: filteredClients.length, icon: Users, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+          { title: 'Active Projects', value: filteredProjects.filter(p => p.status !== 'Completed').length, icon: Layers, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
+          { title: 'Billed Value', value: filteredProjects.length === 0 ? '₦0' : (includeDemo ? `$${filteredProjects.reduce((acc, p) => acc + p.value, 0).toLocaleString()}` : `₦${filteredProjects.reduce((acc, p) => acc + p.value, 0).toLocaleString()}`), icon: DollarSign, color: 'text-slate-600 bg-slate-100 border-slate-200' },
+          { title: 'Active Contract Value', value: filteredProjects.length === 0 ? '₦0' : (includeDemo ? `$${filteredProjects.reduce((acc, p) => acc + p.value, 0).toLocaleString()}` : `₦${filteredProjects.reduce((acc, p) => acc + p.value, 0).toLocaleString()}`), icon: DollarSign, color: 'text-slate-600 bg-slate-100 border-slate-200' },
         ].map((item, idx) => {
           const Icon = item.icon;
           return (
@@ -441,15 +472,22 @@ export default function ClientsProjects({ prospects, onRefreshProspects }: Clien
               <div className="flex justify-center py-6">
                 <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
               </div>
-            ) : clients.length === 0 ? (
+            ) : filteredClients.length === 0 ? (
               <p className="text-slate-400 font-mono text-xs py-4 text-center">No active client records found.</p>
             ) : (
               <div className="space-y-2">
-                {clients.map(client => (
+                {filteredClients.map(client => (
                   <div key={client.id} className="p-3 border border-slate-100 bg-slate-50/50 rounded-xl space-y-2 text-xs">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-display font-bold text-slate-900">{client.name}</p>
+                        <p className="font-display font-bold text-slate-900 flex items-center gap-1.5">
+                          {client.name}
+                          {client.isDemo && (
+                            <span className="text-[9px] font-mono font-bold text-blue-600 bg-blue-50 px-1 py-0.5 border border-blue-100 rounded">
+                              DEMO
+                            </span>
+                          )}
+                        </p>
                         <p className="text-[10px] font-mono text-slate-400">{client.businessName}</p>
                       </div>
                       <span className="font-mono text-[10px] font-bold text-emerald-600 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-100">
@@ -486,17 +524,24 @@ export default function ClientsProjects({ prospects, onRefreshProspects }: Clien
             <div className="flex justify-center py-10">
               <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
             </div>
-          ) : projects.length === 0 ? (
+          ) : filteredProjects.length === 0 ? (
             <p className="text-slate-400 font-mono text-xs py-10 text-center border border-dashed border-slate-100 rounded-xl bg-slate-50/40">
               No active projects compiled.
             </p>
           ) : (
             <div className="space-y-6">
-              {projects.map(proj => (
+              {filteredProjects.map(proj => (
                 <div key={proj.id} className="border border-slate-150 rounded-2xl p-4 sm:p-5 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
-                      <h5 className="font-display font-bold text-sm text-slate-950">{proj.projectName}</h5>
+                      <h5 className="font-display font-bold text-sm text-slate-950 flex items-center gap-1.5">
+                        {proj.projectName}
+                        {proj.isDemo && (
+                          <span className="text-[9px] font-mono font-bold text-blue-600 bg-blue-50 px-1 py-0.5 border border-blue-100 rounded">
+                            DEMO
+                          </span>
+                        )}
+                      </h5>
                       <p className="font-mono text-[10px] text-slate-400 mt-0.5 uppercase tracking-wider">
                         Client ID: {proj.clientId}
                       </p>
@@ -504,7 +549,7 @@ export default function ClientsProjects({ prospects, onRefreshProspects }: Clien
 
                     <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono">
                       <span className="px-2 py-0.5 rounded-full border bg-slate-50 text-slate-500">
-                        Budget: ${proj.value.toLocaleString()}
+                        Budget: {proj.isDemo ? `$${proj.value.toLocaleString()}` : `₦${proj.value.toLocaleString()}`}
                       </span>
                       <span className="px-2 py-0.5 rounded-full border border-blue-100 bg-blue-50 text-blue-600 font-bold uppercase">
                         {proj.status}
@@ -697,8 +742,8 @@ export default function ClientsProjects({ prospects, onRefreshProspects }: Clien
                   className="w-full p-2 border border-slate-200 bg-white rounded-lg focus:outline-none font-sans"
                 >
                   <option value="">-- Choose Client --</option>
-                  {clients.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.businessName})</option>
+                  {filteredClients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.businessName}) {c.isDemo && '[DEMO]'}</option>
                   ))}
                 </select>
               </div>

@@ -176,14 +176,28 @@ export async function ensureMigrated() {
         // Helper to migrate collections idempotently
         const migrateCollection = async (collectionName: string, filename: string, fallbackData: any[]) => {
           const list = await readLocalJSONBackupOrFallback(filename, fallbackData);
-          console.log(`Migrating ${list.length} records for ${collectionName}...`);
+          // Cleanly separate and filter out any demo/sample records
+          const filteredList = list.filter((item: any) => !item.isDemo);
+          console.log(`Migrating ${filteredList.length} production records for ${collectionName}...`);
           
-          for (const item of list) {
+          for (const item of filteredList) {
             if (item && item.id) {
               await firestore.collection(collectionName).doc(item.id).set(item, { merge: true });
             }
           }
         };
+
+        // Purge any pre-existing synthetic/demo documents from the production Firestore database
+        try {
+          console.log("Purging any pre-existing synthetic/demo records from Firestore...");
+          await firestore.collection('clients').doc('c-1').delete();
+          await firestore.collection('projects').doc('proj-1').delete();
+          await firestore.collection('case_studies').doc('cs-1').delete();
+          await firestore.collection('career_entries').doc('car-1').delete();
+          console.log("Firestore demo purge completed successfully.");
+        } catch (purgeErr: any) {
+          console.warn("Failed to purge demo records from Firestore (may be offline or permission restricted):", purgeErr.message || purgeErr);
+        }
 
         await migrateCollection('services', 'services.json', defaultServices);
         await migrateCollection('offers', 'offers.json', defaultOffers);
@@ -487,7 +501,9 @@ const defaultClients: Client[] = [
     source: 'Lead Outreach',
     services: ['Website Design & Development', 'CRM Workflows'],
     notes: 'Initial client won after audit delivery. Wants streamlined patient registration.',
-    status: 'Active'
+    status: 'Active',
+    isDemo: true,
+    dataOrigin: 'demo'
   }
 ];
 
@@ -504,39 +520,43 @@ const defaultProjects: Project[] = [
     value: 2499,
     paymentStatus: 'Partial',
     deliverables: ['Custom Booking Forms', 'Wix Migration to React', 'WhatsApp Confirmation Bot'],
-    notes: '50% upfront deposit received. Reviewing custom wireframe next week.'
+    notes: '50% upfront deposit received. Reviewing custom wireframe next week.',
+    isDemo: true,
+    dataOrigin: 'demo'
   }
 ];
 
 const defaultCaseStudies: CaseStudy[] = [
   {
     id: 'cs-1',
-    title: 'Transforming Patient Intake for Apex Dental Partners',
-    clientName: 'Apex Dental Partners',
-    problem: 'Apex Dental was leaking roughly 30% of their mobile marketing traffic because patients had to call during operational hours to schedule appointments, resulting in empty chairs and lost revenue.',
+    title: '[DEMO CASE STUDY] Transforming Patient Intake (Hypothetical)',
+    clientName: 'Apex Dental Partners (Simulated)',
+    problem: '[DEMO / HYPOTHETICAL] Apex Dental was leaking roughly 30% of their mobile marketing traffic because patients had to call during operational hours to schedule appointments, resulting in empty chairs and lost revenue.',
     approach: 'We completely restructured their landing platform into a blazing-fast, mobile-first booking interface. We replaced their legacy phone-in process with a 3-step online intake calendar with instant SMS/WhatsApp confirmations.',
     solution: 'Designed and engineered a custom React scheduler connected directly to their patient dashboard. Configured automated WhatsApp reminders to decrease patient no-show rates.',
     result: 'Patient digital bookings increased by 42% in the first 30 days post-launch, while administrative booking call volumes fell by 18 hours per dentist per week.',
     technologies: ['React', 'Vite', 'Tailwind CSS', 'Node.js', 'WhatsApp Business API'],
     images: [],
-    testimonial: '"Samuel and Accessmart completely automated our booking bottleneck. We booked 18 new patients in our first fortnight without a single phone call." — Dr. Sarah Jenkins, Apex Dental',
-    publishedStatus: 'Published'
+    testimonial: '[DEMO / HYPOTHETICAL TESTIMONIAL] "Samuel and Accessmart completely automated our booking bottleneck. We booked 18 new patients in our first fortnight without a single phone call." — Dr. Sarah Jenkins (Simulated Client)',
+    publishedStatus: 'Published',
+    isDemo: true,
+    dataOrigin: 'demo'
   }
 ];
 
 const defaultCareerEntries: CareerEntry[] = [
   {
     id: 'car-1',
-    title: 'Patient Engagement Automation Lead',
+    title: 'Patient Engagement Automation Lead [DEMO/SAMPLE]',
     role: 'Lead Systems Developer',
     organization: 'Accessmart Solutions',
     dateRange: 'Jan 2026 - Present',
-    problem: 'Medical and professional clients struggled to manage physical intake queues, leading to administrative overhead and significant patient friction.',
+    problem: '[DEMO / HYPOTHETICAL] Medical and professional clients struggled to manage physical intake queues, leading to administrative overhead and significant patient friction.',
     action: 'Designed and deployed an integrated client onboarding module including a secure server API with lazy initialization. Integrated WhatsApp automated notifications.',
     result: 'Reduced patient intake friction by 35%, cutting operational processing delays from 15 minutes down to under 4 minutes.',
     skills: ['API Integration', 'Workflow Automation', 'UI/UX Performance Optimization'],
     technologies: ['TypeScript', 'Express', 'Tailwind CSS', 'Vite'],
-    evidence: 'Apex Dental Case Study',
+    evidence: '[DEMO] Apex Dental Case Study',
     relatedProjectId: 'proj-1',
     cvSummary: 'Led development of specialized professional intake solutions reducing patient queue times by 35% using React and Express.',
     bullets: [
@@ -544,7 +564,9 @@ const defaultCareerEntries: CareerEntry[] = [
       'Configured automated confirmation alerts decreasing client no-shows by 18%'
     ],
     linkedInAchievement: 'Pioneered custom Patient Engagement Flow (PEF) scaling patient scheduling platforms.',
-    interviewStory: 'When Apex Dental faced booking leaks, we designed a server-side API routing flow that kept user patient records secure while scheduling calls asynchronously. The layout was kept lightweight, achieving a mobile Performance score of 98%.'
+    interviewStory: 'This is a simulated demo case. When a hypothetical Apex Dental faced booking leaks, we designed a server-side API routing flow that kept user patient records secure while scheduling calls asynchronously. The layout was kept lightweight, achieving a mobile Performance score of 98%.',
+    isDemo: true,
+    dataOrigin: 'demo'
   }
 ];
 

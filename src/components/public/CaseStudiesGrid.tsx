@@ -58,9 +58,15 @@ export default function CaseStudiesGrid() {
                 {/* Case Left - Structured Outline */}
                 <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
                   <div className="space-y-4">
-                    <span className="font-mono text-[10px] text-blue-600 font-bold uppercase tracking-wider bg-blue-50 border border-blue-100 px-3 py-1 rounded-full">
-                      VERIFIED CASE EVIDENCE
-                    </span>
+                    {cs.isDemo ? (
+                      <span className="font-mono text-[10px] text-amber-700 font-bold uppercase tracking-wider bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                        DEMO / HYPOTHETICAL SIMULATION
+                      </span>
+                    ) : (
+                      <span className="font-mono text-[10px] text-blue-600 font-bold uppercase tracking-wider bg-blue-50 border border-blue-100 px-3 py-1 rounded-full">
+                        VERIFIED CASE EVIDENCE
+                      </span>
+                    )}
                     <h4 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">
                       {cs.title}
                     </h4>

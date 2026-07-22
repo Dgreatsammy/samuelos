@@ -1,11 +1,25 @@
 import { 
   Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem 
 } from '../types';
+import { auth } from './firebase';
 
 const API_BASE = '/api';
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const token = localStorage.getItem('samuel_os_token');
+  let token = localStorage.getItem('samuel_os_token');
+  
+  if (auth && auth.currentUser) {
+    try {
+      const freshToken = await auth.currentUser.getIdToken();
+      if (freshToken) {
+        token = freshToken;
+        localStorage.setItem('samuel_os_token', freshToken);
+      }
+    } catch (e) {
+      console.warn('Failed to dynamically refresh Firebase ID token in fetchAPI:', e);
+    }
+  }
+
   const headers: any = {
     'Content-Type': 'application/json',
     ...options?.headers,
@@ -143,6 +157,12 @@ export const api = {
       body: JSON.stringify({ prospectId, channel }),
     });
   },
+  async analyzeCloserAgent(prospectId: string): Promise<{ success: boolean; analysis: any }> {
+    return fetchAPI('/agents/closer/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ prospectId }),
+    });
+  },
 
   // Clients
   async getClients(): Promise<Client[]> {
@@ -152,6 +172,12 @@ export const api = {
     return fetchAPI<Client>('/clients', {
       method: 'POST',
       body: JSON.stringify(client),
+    });
+  },
+  async convertToClient(prospectId: string, clientData: { clientName?: string; contactEmail?: string; contactPhone?: string; notes?: string }): Promise<{ success: boolean; client: Client; prospect: Prospect }> {
+    return fetchAPI(`/prospects/${prospectId}/convert-to-client`, {
+      method: 'POST',
+      body: JSON.stringify(clientData),
     });
   },
 

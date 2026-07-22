@@ -185,7 +185,14 @@ export default function CareerEngineView() {
                           <Briefcase className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className="font-display font-bold text-slate-900 text-sm">{entry.role}</p>
+                          <p className="font-display font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                            {entry.role}
+                            {entry.isDemo && (
+                              <span className="text-[9px] font-mono font-bold text-blue-600 bg-blue-50 px-1 py-0.5 border border-blue-100 rounded shrink-0">
+                                DEMO
+                              </span>
+                            )}
+                          </p>
                           <p className="text-[10px] font-mono text-slate-400">{entry.organization} • {entry.dateRange}</p>
                         </div>
                       </div>
