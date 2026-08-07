@@ -44,7 +44,7 @@ async function runFinalAudit() {
     dataConfidenceScore: number;
     verifiedFindings: string[];
     unverifiedFindings: string[];
-    outreachStatus: 'READY_FOR_APPROVAL' | 'AWAITING_EVENUE_VERIFICATION' | 'AWAITING_EVIDENCE_VERIFICATION';
+    outreachStatus: 'READY_FOR_APPROVAL' | 'AWAITING_APPROVAL' | 'AWAITING_EVIDENCE_VERIFICATION';
     scoreDetails: ScoreDetails;
     fieldVerifications: {
       businessName: 'VERIFIED' | 'PARTIALLY_VERIFIED' | 'UNVERIFIED' | 'NOT_FOUND' | 'CONFLICTING';
@@ -104,17 +104,17 @@ async function runFinalAudit() {
     },
     'p-ng-2': {
       evidenceStatus: 'VERIFIED',
-      evidenceNotes: "Active website and premium storefront verified. The website is a static landing page. Leads are forced into manual WhatsApp chats, experiencing dropoffs.",
+      evidenceNotes: "Active website and physical storefront verified. Website resolves cleanly. Catering enquiries redirect to WhatsApp rather than providing online quote intake forms.",
       verificationSource: "Direct website audit of foodspace.ng & Google Maps street validation",
       dataConfidenceScore: 95,
       verifiedFindings: [
         "Website URL https://foodspace.ng resolves correctly and throws no SSL errors.",
-        "SSL is valid, issued by Let's Encrypt, expiring in 68 days.",
-        "Mobile viewport is responsive but crowded; menu pages load as heavy static PDF files.",
+        "SSL is valid, issued by Let's Encrypt.",
+        "Mobile viewport is responsive; menu pages present static content.",
         "Catering inquiries rely on manual WhatsApp redirects, with no online calculator or intake form."
       ],
       unverifiedFindings: [],
-      outreachStatus: 'READY_FOR_APPROVAL',
+      outreachStatus: 'AWAITING_APPROVAL',
       scoreDetails: {
         digitalGap: 26,
         businessPotential: 18,

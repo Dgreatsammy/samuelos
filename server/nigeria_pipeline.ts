@@ -79,8 +79,8 @@ Founder, Accessmart Solutions`
       source: 'Lagos Preliminary Research',
       researchDate: '2026-07-20',
       verificationStatus: 'VERIFIED',
-      digitalGap: 'Website www.foodspace.ng exists and resolves but operates as a static, passive landing page. Catering requests are pushed to a basic static WhatsApp link, which experiences high cart/enquiry bounce rates.',
-      businessOpportunity: 'Implementing a robust, interactive catering quote and private booking funnel natively on foodspace.ng.',
+      digitalGap: 'Website www.foodspace.ng resolves and presents menu offerings. Catering inquiry flow relies on static WhatsApp redirects rather than self-service web intake.',
+      businessOpportunity: 'Implementing a structured catering quote estimator and private booking intake option directly on foodspace.ng.',
       recommendedOfferId: 'o-conversion',
       scoreDetails: {
         digitalGap: 26,
@@ -89,8 +89,8 @@ Founder, Accessmart Solutions`
         accessibility: 13,
         timingIntent: 12
       } as ScoreDetails,
-      notes: 'Premium gourmet food space on Orchid Road. High-traffic location. Existing website lacks real-time custom quote selector or structured client intake fields.',
-      evidenceNotes: 'Website www.foodspace.ng is active but lacks interactive booking. Users must click generic WhatsApp links to coordinate custom menus or corporate bookings.',
+      notes: 'Gourmet food space on Orchid Road. Storefront verified. Website is active but enquiry flow relies on manual WhatsApp coordination.',
+      evidenceNotes: 'Website www.foodspace.ng is active but lacks direct quote intake forms. Users click WhatsApp links to inquire about custom menus or corporate bookings.',
       verificationSource: 'Direct manual website audit on foodspace.ng and Google Maps validation',
       verifiedFindings: [
         'Website http://www.foodspace.ng resolves and is active.',
@@ -98,18 +98,18 @@ Founder, Accessmart Solutions`
         'Enquiry flow relies on static WhatsApp redirects rather than self-service booking.'
       ],
       unverifiedFindings: [],
-      outreachStatus: 'READY_FOR_APPROVAL' as const,
+      outreachStatus: 'AWAITING_APPROVAL' as const,
       message: `Hi Team,
 
-I came across Foodspace Lagos while compiling digital presence benchmarks for premium caterers in the Lekki area. I reviewed your current website (foodspace.ng) and absolutely love your gourmet branding and storefront.
+I came across Foodspace Lagos while researching food and catering services in the Lekki area. I visited your website (foodspace.ng) and observed your menu presentation and gourmet storefront.
 
-I noticed a practical opportunity to improve your conversion rate: currently, corporate or private catering prospects on your site must click away to WhatsApp to get menu quotes. This manual step often causes high interest drop-off. By integrating an interactive quote calculator and client intake form directly on your site, you could capture verified corporate leads 24/7.
+As an observation, I noticed that visitors looking to request catering or menu quotes are currently directed to a WhatsApp link to coordinate details. To make it simpler for prospective clients to explore custom catering options, having a structured intake form or quote estimator directly on your website could save time for both your team and your customers.
 
-I specialize in building high-conversion systems for food businesses. Would you be open to a brief 10-minute feedback call next Tuesday to view a visual mock of how this could look?
+I help food and hospitality businesses design simple digital intake systems. If you are open to it, I would be happy to share a brief visual layout of how a web quote intake option could look for Foodspace.
 
 Warm regards,
 Samuel Oluwadamilare
-Founder, Accessmart Solutions`
+Accessmart Solutions`
     },
     {
       id: 'p-ng-3',
