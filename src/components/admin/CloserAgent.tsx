@@ -646,7 +646,7 @@ export default function CloserAgent({
                 <div className="pt-3 border-t border-slate-100 flex flex-wrap gap-2">
                   <span className="text-xs font-mono text-slate-400 self-center mr-2">Transition To:</span>
                   
-                  {currentOutreach.status === 'AWAITING_EVIDENCE_VERIFICATION' && (
+                  {(currentOutreach.status === 'AWAITING_EVIDENCE_VERIFICATION' || currentOutreach.status === 'DRAFT') && (
                     <button
                       onClick={() => handleTransitionStatus('READY_FOR_APPROVAL', 'Factual claims reviewed and proposed')}
                       className="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-mono text-[10px] font-bold rounded-lg border border-indigo-200 hover:bg-indigo-100 cursor-pointer"
@@ -655,21 +655,26 @@ export default function CloserAgent({
                     </button>
                   )}
 
-                  {currentOutreach.status === 'READY_FOR_APPROVAL' && (
+                  {(currentOutreach.status === 'READY_FOR_APPROVAL' || currentOutreach.status === 'AWAITING_APPROVAL' || currentOutreach.status === 'DRAFT') && (
                     <button
                       onClick={() => handleTransitionStatus('APPROVED', 'Authorizing outreach copy sending')}
                       className="px-3 py-1.5 bg-emerald-600 text-white font-mono text-[10px] font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
                     >
-                      APPROVE OUTREACH
+                      APPROVE OUTREACH DRAFT
                     </button>
                   )}
 
-                  {currentOutreach.status === 'APPROVED' && (
+                  {(currentOutreach.status === 'APPROVED' || currentOutreach.status === 'AWAITING_APPROVAL') && (
                     <button
-                      onClick={() => handleTransitionStatus('SENT', 'Draft manually sent over outreach channels')}
+                      onClick={() => {
+                        const confirmed = window.confirm(`Confirm Manual Send:\n\nHave you manually delivered this outreach message to ${currentProspect?.businessName || 'prospect'}?\n\nClick OK to update status to SENT and move lead stage to Contacted.`);
+                        if (confirmed) {
+                          handleTransitionStatus('SENT', 'Draft manually sent over outreach channels');
+                        }
+                      }}
                       className="px-3 py-1.5 bg-slate-900 text-white font-mono text-[10px] font-bold rounded-lg hover:bg-slate-800 cursor-pointer"
                     >
-                      MARK AS FIRED / SENT
+                      MARK AS MANUALLY SENT
                     </button>
                   )}
 

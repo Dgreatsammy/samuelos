@@ -86,14 +86,51 @@ export default function OutreachEngine({ prospects, selectedProspect, onClearSel
 
     try {
       await api.saveOutreach(payload);
-      // Move prospect stage to Contacted in database
-      const updatedProspect: Prospect = { ...prospect, status: 'Contacted' };
-      await api.saveProspect(updatedProspect);
-      
+      // NOTE: Saving an AI outreach draft does NOT mark prospect as Contacted or Sent.
+      // Prospect remains in current stage until Samuel explicitly approves and marks as manually sent.
       loadOutreaches();
-      alert('Outreach record saved & lead moved to "Contacted" pipeline stage.');
+      alert('Outreach draft saved as "Draft". Prospect pipeline stage remains unchanged.');
     } catch (err) {
       alert('Failed to save outreach log');
+    }
+  };
+
+  const handleApproveOutreach = async (item: Outreach) => {
+    try {
+      const updated: Outreach = { ...item, status: 'APPROVED' };
+      await api.saveOutreach(updated);
+      loadOutreaches();
+      alert(`Outreach draft for ${prospects.find(p => p.id === item.prospectId)?.businessName || 'prospect'} approved!`);
+    } catch (err) {
+      alert('Failed to approve outreach draft.');
+    }
+  };
+
+  const handleMarkAsManuallySent = async (item: Outreach) => {
+    const prospect = prospects.find(p => p.id === item.prospectId);
+    const bizName = prospect ? prospect.businessName : 'Prospect';
+    const confirmed = window.confirm(
+      `Confirm Manual Delivery:\n\nHave you manually copied and sent this message to ${bizName} via ${item.channel.toUpperCase()}?\n\nClick OK to confirm that you manually delivered this outreach.`
+    );
+    if (!confirmed) return;
+
+    try {
+      const updatedOutreach: Outreach = { ...item, status: 'SENT' };
+      await api.saveOutreach(updatedOutreach);
+
+      if (prospect) {
+        const updatedProspect: Prospect = {
+          ...prospect,
+          status: 'Contacted',
+          notes: `${prospect.notes || ''}\n\n[Human Action - ${new Date().toISOString().split('T')[0]}] Manually sent outreach message via ${item.channel}.`
+        };
+        await api.saveProspect(updatedProspect);
+      }
+
+      loadOutreaches();
+      alert(`Outreach marked as manually sent. Lead stage updated to "Contacted".`);
+    } catch (err) {
+      alert('Failed to mark outreach as manually sent.');
     }
   };
 
@@ -272,6 +309,26 @@ export default function OutreachEngine({ prospects, selectedProspect, onClearSel
                   <p className="text-[11px] font-light text-slate-500 leading-relaxed line-clamp-3 bg-white p-2 border border-slate-100 rounded">
                     {item.message}
                   </p>
+
+                  {/* Human Control Actions */}
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    {item.status !== 'APPROVED' && item.status !== 'SENT' && (
+                      <button
+                        onClick={() => handleApproveOutreach(item)}
+                        className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold rounded cursor-pointer"
+                      >
+                        Approve Draft
+                      </button>
+                    )}
+                    {item.status !== 'SENT' && (
+                      <button
+                        onClick={() => handleMarkAsManuallySent(item)}
+                        className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-mono font-bold rounded cursor-pointer"
+                      >
+                        Mark as Manually Sent
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

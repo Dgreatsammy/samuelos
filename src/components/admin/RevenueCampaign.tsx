@@ -75,10 +75,12 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
     currency: 'USD' as 'NGN' | 'USD',
     paymentTerms: '',
     paymentStatus: 'Partial' as 'Paid' | 'Partial' | 'Unpaid',
+    paymentMethod: 'Bank Transfer',
+    paymentDate: new Date().toISOString().split('T')[0],
     transactionRef: '',
     cashReceivedAmount: 0,
-    notes: '',
-    onboardClient: true
+    humanConfirmed: false,
+    notes: ''
   });
 
   // Load Data
@@ -217,81 +219,159 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
 
   // Handlers - Revenue validation & conversion
   const handleTriggerRevenueModal = (prospect: Prospect) => {
+    if ((prospect as any).isDemo || prospect.id.startsWith('p-demo') || (prospect as any).dataOrigin === 'demo') {
+      alert('Demo Record Protection: Real revenue cannot be recorded for demo or sample prospects.');
+      return;
+    }
+
+    const isNigeria = prospect.location?.toLowerCase().includes('nigeria') ||
+                      prospect.location?.toLowerCase().includes('lagos') ||
+                      prospect.location?.toLowerCase().includes('lekki');
+
     setSelectedProspectForRevenue(prospect);
     setRevenueData({
-      price: prospect.recommendedOfferId === 'o-audit' ? 299 : 1500,
-      currency: 'USD',
+      price: prospect.recommendedOfferId === 'o-audit' ? 299 : (isNigeria ? 1500000 : 1500),
+      currency: isNigeria ? 'NGN' : 'USD',
       paymentTerms: '50% upfront deposit, 50% upon delivery',
       paymentStatus: 'Partial',
-      transactionRef: '',
-      cashReceivedAmount: 750,
-      notes: '',
-      onboardClient: true
+      paymentMethod: 'Bank Transfer',
+      paymentDate: new Date().toISOString().split('T')[0],
+      transactionRef: '', // Blank by default, human must input
+      cashReceivedAmount: 0, // 0 by default, human must input
+      humanConfirmed: false,
+      notes: ''
     });
     setShowRevenueModal(true);
   };
 
   const handleSaveRevenue = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProspectForRevenue || !revenueData.transactionRef || revenueData.cashReceivedAmount <= 0) {
-      alert('Transaction reference and positive cash deposit are required.');
+    if (!selectedProspectForRevenue) return;
+
+    if ((selectedProspectForRevenue as any).isDemo || selectedProspectForRevenue.id.startsWith('p-demo')) {
+      alert('Demo Record Protection: Real revenue logging is barred for demo records.');
       return;
     }
+
+    if (!revenueData.transactionRef || !revenueData.transactionRef.trim()) {
+      alert('A valid transaction reference (e.g. Bank Transfer ID, Stripe Txn Ref) is required.');
+      return;
+    }
+
+    if (revenueData.cashReceivedAmount <= 0) {
+      alert('Cash deposit received must be greater than 0.');
+      return;
+    }
+
+    if (!revenueData.humanConfirmed) {
+      alert('You must explicitly check the confirmation box verifying that funds were actually received in your account.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // 1. Log actual client & project manually
-      const clientPayload = {
-        clientName: selectedProspectForRevenue.email ? selectedProspectForRevenue.email.split('@')[0] : 'Client Representative',
-        contactEmail: selectedProspectForRevenue.email || '',
-        contactPhone: selectedProspectForRevenue.phone || '',
-        notes: `Converted manually from CRM. Transaction Reference: ${revenueData.transactionRef}. ${revenueData.notes}`
-      };
-
-      const res = await api.convertToClient(selectedProspectForRevenue.id, clientPayload);
-      
-      if (res.success) {
-        // 2. Create the associated real project
-        const projectPayload: Project = {
-          id: `proj-${Date.now()}`,
-          clientId: res.client.id,
-          projectName: `${selectedProspectForRevenue.businessName} System Integration`,
-          offerId: selectedProspectForRevenue.recommendedOfferId || 'o-website',
-          description: selectedProspectForRevenue.businessOpportunity || 'Tailored business technology suite deployment.',
-          startDate: new Date().toISOString().split('T')[0],
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days
-          status: 'Active',
-          value: Number(revenueData.price),
-          paymentStatus: revenueData.paymentStatus,
-          deliverables: ['Custom landing components', 'Lead workflow synchronization', 'Verification analytics'],
-          notes: `Paid amount: ${revenueData.currency} ${revenueData.cashReceivedAmount}. Reference: ${revenueData.transactionRef}.`,
-          dataOrigin: 'production' // Explicit non-demo mark
-        };
-
-        await api.saveProject(projectPayload);
-
-        // 3. Mark matching proposal as WON if it exists
-        const matchingProp = proposals.find(p => p.prospectId === selectedProspectForRevenue.id);
-        if (matchingProp) {
-          await api.saveProposal({ ...matchingProp, status: 'WON' });
-        }
-
-        setShowRevenueModal(false);
-        setSelectedProspectForRevenue(null);
-        alert('Revenue validation completed. Deal logged, client onboarded, and real project generated.');
-        onRefresh();
-        await loadData();
+      // Record payment receipt on matching proposal if present
+      const matchingProp = proposals.find(p => p.prospectId === selectedProspectForRevenue.id);
+      if (matchingProp) {
+        await api.saveProposal({
+          ...matchingProp,
+          status: 'NEGOTIATION',
+          paymentTerms: `${matchingProp.paymentTerms || ''} | Verified Deposit: ${revenueData.currency} ${revenueData.cashReceivedAmount} (Ref: ${revenueData.transactionRef}, Date: ${revenueData.paymentDate}, Method: ${revenueData.paymentMethod})`
+        });
       }
+
+      // Record verified payment log on prospect
+      const updatedProspect: Prospect = {
+        ...selectedProspectForRevenue,
+        notes: `${selectedProspectForRevenue.notes || ''}\n\n[Payment Receipt Verified - ${revenueData.paymentDate}]\nAmount Received: ${revenueData.currency} ${revenueData.cashReceivedAmount}\nTxn Reference: ${revenueData.transactionRef}\nPayment Method: ${revenueData.paymentMethod}`
+      };
+      await api.saveProspect(updatedProspect);
+
+      setShowRevenueModal(false);
+      setSelectedProspectForRevenue(null);
+      alert(`Payment receipt recorded successfully!\n\nNote: In strict alignment with SamuelOS commercial state rules, recording revenue does NOT automatically create a Client or Project. Click 'Convert to Active Client' when you are ready to onboard.`);
+      onRefresh();
+      await loadData();
     } catch (err: any) {
       console.error(err);
-      alert(err.message || 'Failed to convert prospect and validate revenue.');
+      alert(err.message || 'Failed to record revenue receipt.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Helper values
-  const totalActualRevenue = projects.reduce((sum, p) => sum + (p.value || 0), 0);
-  const totalActualRevenueNGN = projects.filter(p => p.notes?.includes('NGN')).reduce((sum, p) => sum + (p.value || 0), 0);
+  // Explicit Manual Client Conversion Handler
+  const handleConvertToClient = async (prospect: Prospect) => {
+    if ((prospect as any).isDemo || prospect.id.startsWith('p-demo')) {
+      alert('Demo Record Protection: Demo/sample prospects cannot be converted to production clients.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Confirm Manual Client Conversion:\n\nConvert ${prospect.businessName} into an Active Production Client?\n\nThis will create a Client record and update CRM pipeline status to "Won".`
+    );
+    if (!confirmed) return;
+
+    setSubmitting(true);
+    try {
+      const clientPayload = {
+        clientName: prospect.businessName,
+        contactEmail: prospect.email || '',
+        contactPhone: prospect.phone || '',
+        notes: `Converted manually via Revenue Control Center. Location: ${prospect.location}`
+      };
+
+      const res = await api.convertToClient(prospect.id, clientPayload);
+
+      if (res.success) {
+        // Mark matching proposal as WON
+        const matchingProp = proposals.find(p => p.prospectId === prospect.id);
+        if (matchingProp) {
+          await api.saveProposal({ ...matchingProp, status: 'WON' });
+        }
+
+        const createProj = window.confirm(
+          `🎉 Client ${prospect.businessName} successfully created!\n\nWould you like to manually generate an Active Project for this client now?`
+        );
+
+        if (createProj) {
+          const projectPayload: Project = {
+            id: `proj-${Date.now()}`,
+            clientId: res.client.id,
+            projectName: `${prospect.businessName} System Integration`,
+            offerId: prospect.recommendedOfferId || 'o-website',
+            description: prospect.businessOpportunity || 'Tailored business technology deployment.',
+            startDate: new Date().toISOString().split('T')[0],
+            dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            status: 'Active',
+            value: prospect.recommendedOfferId === 'o-audit' ? 299 : 1500,
+            paymentStatus: 'Paid',
+            deliverables: ['Custom landing components', 'Workflow synchronization'],
+            notes: `Created manually after client conversion.`,
+            dataOrigin: 'production'
+          };
+          await api.saveProject(projectPayload);
+          alert('Active Project created successfully!');
+        }
+
+        onRefresh();
+        await loadData();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to convert prospect to client.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Helper values - Strict Demo Protection for Revenue Metrics
+  const totalActualRevenue = projects
+    .filter(p => !p.isDemo && p.dataOrigin !== 'demo' && p.clientId !== 'c-1' && p.id !== 'proj-1')
+    .reduce((sum, p) => sum + (p.value || 0), 0);
+
+  const totalActualRevenueNGN = projects
+    .filter(p => !p.isDemo && p.dataOrigin !== 'demo' && p.clientId !== 'c-1' && p.id !== 'proj-1' && p.notes?.includes('NGN'))
+    .reduce((sum, p) => sum + (p.value || 0), 0);
 
   // Filter 5-10 Prospects for First Client Campaign (Phase 4E)
   const campaignProspects = prospects
@@ -728,7 +808,7 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
             <div className="space-y-6 text-left">
               <h3 className="font-display text-lg font-bold text-slate-900">Manual Client Onboarding & Revenue Validation</h3>
               <p className="text-xs text-slate-500">
-                Onboard qualified pipeline leads into verified active projects and register real cash received receipts.
+                Record verified payment receipts and manually onboard qualified leads into active client accounts.
               </p>
 
               {prospects.filter(p => p.status !== 'Won').length === 0 ? (
@@ -740,19 +820,27 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
                   {prospects
                     .filter(p => p.status !== 'Won')
                     .map(p => (
-                      <div key={p.id} className="p-4 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
+                      <div key={p.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-50/50 transition-colors">
                         <div>
                           <h4 className="font-display font-bold text-slate-900 text-xs">{p.businessName}</h4>
                           <p className="text-[10px] font-mono text-slate-400">
-                            Location: {p.location} &bull; Gap Score: {p.leadScore} &bull; Rec Offer: {p.recommendedOfferId || 'o-website'}
+                            Location: {p.location} &bull; Stage: <strong className="text-slate-700">{p.status}</strong> &bull; Gap Score: {p.leadScore}
                           </p>
                         </div>
-                        <button
-                          onClick={() => handleTriggerRevenueModal(p)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-950 hover:bg-slate-900 text-white font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
-                        >
-                          Validate Onboard
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleTriggerRevenueModal(p)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
+                          >
+                            <DollarSign className="w-3 h-3" /> Record Payment Receipt
+                          </button>
+                          <button
+                            onClick={() => handleConvertToClient(p)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-950 hover:bg-slate-900 text-white font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
+                          >
+                            <Users className="w-3 h-3" /> Convert to Active Client
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -1086,7 +1174,7 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
         </div>
       )}
 
-      {/* MODAL: REVENUE LOGGING & ONBOARDING */}
+      {/* MODAL: REVENUE LOGGING & PAYMENT RECORDING */}
       {showRevenueModal && selectedProspectForRevenue && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <form 
@@ -1095,7 +1183,7 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
           >
             <div className="flex justify-between items-center">
               <div className="space-y-0.5">
-                <span className="font-mono text-[9px] text-slate-400 uppercase font-bold block">VERIFY DEPOSIT & SIGN AGREEMENT</span>
+                <span className="font-mono text-[9px] text-slate-400 uppercase font-bold block">RECORD VERIFIED PAYMENT RECEIPT</span>
                 <h4 className="font-display text-base font-bold text-slate-900">Revenue Validation Gate</h4>
               </div>
               <button 
@@ -1110,23 +1198,23 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
               </button>
             </div>
 
-            <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl p-3.5 space-y-1">
-              <p className="font-bold text-emerald-900 text-xs">Onboard Target: {selectedProspectForRevenue.businessName}</p>
+            <div className="bg-indigo-50/50 border border-indigo-200 rounded-xl p-3.5 space-y-1">
+              <p className="font-bold text-indigo-950 text-xs">Target Lead: {selectedProspectForRevenue.businessName}</p>
               <p className="text-[11px] font-light text-slate-600 font-mono">
-                Identified Gap: {selectedProspectForRevenue.websiteQuality || 'Digital presencia optimizations.'}
+                Location: {selectedProspectForRevenue.location} &bull; Pipeline Stage: {selectedProspectForRevenue.status}
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-1">
-                  <label className="font-mono text-[10px] text-slate-500 uppercase block">CONTRACT PRICE AGREED</label>
+                  <label className="font-mono text-[10px] text-slate-500 uppercase block">CONTRACT VALUE / PRICE</label>
                   <input
                     type="number"
                     required
                     value={revenueData.price}
                     onChange={(e) => setRevenueData(prev => ({ ...prev, price: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none font-mono"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1134,81 +1222,100 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
                   <select
                     value={revenueData.currency}
                     onChange={(e) => setRevenueData(prev => ({ ...prev, currency: e.target.value as any }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none font-mono font-bold"
                   >
-                    <option value="USD">USD ($)</option>
                     <option value="NGN">NGN (₦)</option>
+                    <option value="USD">USD ($)</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-mono text-[10px] text-slate-500 uppercase block font-bold text-slate-950">CASH DEPOSIT RECEIVED</label>
+                  <label className="font-mono text-[10px] text-slate-950 uppercase block font-bold">CASH RECEIVED (*REQUIRED)</label>
                   <input
                     type="number"
                     required
-                    value={revenueData.cashReceivedAmount}
+                    min={1}
+                    placeholder="Enter amount..."
+                    value={revenueData.cashReceivedAmount || ''}
                     onChange={(e) => setRevenueData(prev => ({ ...prev, cashReceivedAmount: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none font-bold"
+                    className="w-full px-3 py-2 border border-indigo-300 rounded-lg focus:outline-none font-mono font-bold bg-indigo-50/30 text-indigo-900"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-mono text-[10px] text-slate-500 uppercase block">PAYMENT STATUS</label>
+                  <label className="font-mono text-[10px] text-slate-500 uppercase block">PAYMENT METHOD</label>
                   <select
-                    value={revenueData.paymentStatus}
-                    onChange={(e) => setRevenueData(prev => ({ ...prev, paymentStatus: e.target.value as any }))}
+                    value={revenueData.paymentMethod}
+                    onChange={(e) => setRevenueData(prev => ({ ...prev, paymentMethod: e.target.value }))}
                     className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none"
                   >
-                    <option value="Partial">Partial / Deposit</option>
-                    <option value="Paid">Fully Paid</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Stripe">Stripe / Card</option>
+                    <option value="Check">Check / Wire</option>
+                    <option value="POS">POS Terminal</option>
+                    <option value="Cash">Cash</option>
                   </select>
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-mono text-[10px] text-slate-500 uppercase block font-extrabold text-indigo-600">
-                  TRANSACTION REFERENCE / INVOICE REF
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. TXN-2026-99482 or BANK-TRANSFER"
-                  value={revenueData.transactionRef}
-                  onChange={(e) => setRevenueData(prev => ({ ...prev, transactionRef: e.target.value }))}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none font-mono font-bold"
-                />
-                <span className="text-[10px] text-slate-400 block pt-0.5">
-                  Input payment receipt invoice reference from bank or Stripe manually.
-                </span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-mono text-[10px] text-indigo-600 uppercase block font-extrabold">
+                    TRANSACTION REF (*REQUIRED)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. GTB-TRF-2026-88102"
+                    value={revenueData.transactionRef}
+                    onChange={(e) => setRevenueData(prev => ({ ...prev, transactionRef: e.target.value }))}
+                    className="w-full px-3 py-2 border border-indigo-300 rounded-lg focus:outline-none font-mono font-bold bg-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-mono text-[10px] text-slate-500 uppercase block">PAYMENT DATE</label>
+                  <input
+                    type="date"
+                    required
+                    value={revenueData.paymentDate}
+                    onChange={(e) => setRevenueData(prev => ({ ...prev, paymentDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none font-mono text-[11px]"
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-mono text-[10px] text-slate-500 uppercase block">ADDITIONAL AGREEMENT DETAILS (OPTIONAL)</label>
+                <label className="font-mono text-[10px] text-slate-500 uppercase block">PAYMENT & AGREEMENT NOTES</label>
                 <textarea
                   rows={2}
-                  placeholder="Specify customization scope, SLAs, etc..."
+                  placeholder="Additional notes or payment proof references..."
                   value={revenueData.notes}
                   onChange={(e) => setRevenueData(prev => ({ ...prev, notes: e.target.value }))}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none font-sans"
                 />
               </div>
 
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+              <div className="flex items-start gap-2 pt-2 border-t border-slate-100 bg-amber-50/50 p-3 rounded-xl border border-amber-200/60">
                 <input
                   type="checkbox"
-                  id="onboardClientCheckbox"
-                  checked={revenueData.onboardClient}
-                  onChange={(e) => setRevenueData(prev => ({ ...prev, onboardClient: e.target.checked }))}
-                  className="w-4 h-4 text-indigo-600"
+                  id="humanConfirmedCheckbox"
+                  required
+                  checked={revenueData.humanConfirmed}
+                  onChange={(e) => setRevenueData(prev => ({ ...prev, humanConfirmed: e.target.checked }))}
+                  className="w-4 h-4 text-indigo-600 mt-0.5"
                 />
-                <label htmlFor="onboardClientCheckbox" className="font-mono text-[10px] text-slate-600 select-none cursor-pointer uppercase block">
-                  MANUALLY PROVISION PRODUCTION CLIENT & ACTIVE PROJECT
+                <label htmlFor="humanConfirmedCheckbox" className="font-mono text-[10px] text-slate-800 select-none cursor-pointer leading-tight block">
+                  <strong>HUMAN VERIFICATION CONFIRMED:</strong> I confirm this payment of {revenueData.currency} {revenueData.cashReceivedAmount || 0} was actually received and verified in our bank/merchant account.
                 </label>
               </div>
+
+              <p className="text-[10px] text-slate-400 font-mono italic">
+                * Recording revenue logs the financial receipt and updates proposal status. It does NOT automatically convert the lead into an Active Client or generate a project.
+              </p>
             </div>
 
-            <div className="pt-2 flex justify-end gap-2">
+            <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => {
@@ -1224,7 +1331,7 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
                 disabled={submitting}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
               >
-                {submitting ? 'Logging...' : 'Confirm Cash & Onboard'}
+                {submitting ? 'Recording Receipt...' : 'Save Payment Receipt'}
               </button>
             </div>
           </form>
