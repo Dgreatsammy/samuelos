@@ -152,7 +152,16 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Google Sign-In failed:", err);
-      setAuthError(err.message || 'Google Sign-In failed. Please ensure your account is authorized.');
+      const isNetworkErr = err.code === 'auth/network-request-failed' || err.message?.includes('network-request-failed');
+      if (isNetworkErr) {
+        setAuthError('Google Sign-In network connection failed (common inside sandboxed preview iFrames). Please use Email & Password below or open the app in a new tab.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setAuthError('Sign-In popup was blocked by browser. Please allow popups or use Email/Password sign in.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        setAuthError('Sign-In popup was closed before completion.');
+      } else {
+        setAuthError(err.message || 'Google Sign-In failed. Please ensure your account is authorized.');
+      }
     } finally {
       setLoggingIn(false);
     }
@@ -499,10 +508,21 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="p-2.5 bg-slate-50 rounded-lg font-mono text-[9px] text-slate-400 text-center leading-normal">
-                Demo Auth Creds: <br/> 
-                Email: <strong>admin@samuelos.co</strong> <br/>
-                Password: <strong>samuel_secure_os_pwd</strong>
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl font-mono text-[10px] text-slate-500 text-center space-y-1.5">
+                <div>
+                  <span className="text-slate-400 block uppercase font-bold text-[9px] mb-0.5">Demo Admin Credentials</span>
+                  Email: <strong className="text-slate-800">admin@samuelos.co</strong> | Password: <strong className="text-slate-800">samuel_secure_os_pwd</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@samuelos.co');
+                    setPassword('samuel_secure_os_pwd');
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-indigo-700 border border-slate-200 rounded text-[10px] font-bold cursor-pointer transition-colors"
+                >
+                  Auto-Fill Admin Credentials
+                </button>
               </div>
             </form>
           </div>
