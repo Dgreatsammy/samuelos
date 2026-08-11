@@ -93,6 +93,8 @@ export interface Prospect {
   verifiedFindings?: string[];
   unverifiedFindings?: string[];
   dataConfidenceScore?: number;
+  isDemo?: boolean;
+  dataOrigin?: string;
 }
 
 export interface AuditDimension {
@@ -333,5 +335,76 @@ export interface RevenueRecord {
   dataOrigin: 'production' | 'demo';
   recordedBy: string;
   notes?: string;
+}
+
+// Live Business Verification Engine Types (Phase 1)
+export type EvidenceSourceType =
+  | 'DIRECT_ACCESS'
+  | 'DNS'
+  | 'SEARCH_INDEX'
+  | 'SOCIAL_PROFILE'
+  | 'BUSINESS_DIRECTORY'
+  | 'USER_OBSERVATION'
+  | 'AI_INFERENCE'
+  | 'HISTORICAL';
+
+export type VerificationStatus =
+  | 'VERIFIED'
+  | 'UNVERIFIED'
+  | 'FAILED'
+  | 'CONTRADICTED'
+  | 'PARTIALLY_VERIFIED';
+
+export type FreshnessStatus = 'CURRENT' | 'RECENT' | 'STALE' | 'HISTORICAL';
+
+export type ClaimClassification =
+  | 'SUPPORTED'
+  | 'UNSUPPORTED'
+  | 'STALE'
+  | 'CONTRADICTED'
+  | 'INFERENCE'
+  | 'RECOMMENDATION';
+
+export interface EvidenceRecord {
+  evidenceId: string;
+  prospectId: string;
+  claim: string;
+  sourceType: EvidenceSourceType;
+  sourceUrl?: string;
+  verificationMethod: string;
+  observation: string;
+  observedAt: string;
+  status: VerificationStatus;
+  confidence: number;
+  freshness: FreshnessStatus;
+  errorInfo?: string;
+  details?: Record<string, any>;
+  isDemo?: boolean;
+  dataOrigin?: string;
+}
+
+export interface VerificationConflict {
+  id: string;
+  prospectId: string;
+  conflictType: 'WEB_PRESENCE_CONFLICT' | 'DATA_MISMATCH' | 'STALE_OVERRIDE_ATTEMPT';
+  summary: string;
+  evidenceIds: string[];
+  observedAt: string;
+  status: 'OPEN' | 'RESOLVED' | 'ACKNOWLEDGED';
+}
+
+export interface ProspectVerificationAudit {
+  prospectId: string;
+  businessName: string;
+  domain?: string;
+  lastVerifiedAt?: string;
+  overallStatus: VerificationStatus;
+  confidenceScore: number;
+  currentlyVerified: EvidenceRecord[];
+  recentEvidence: EvidenceRecord[];
+  staleEvidence: EvidenceRecord[];
+  conflicts: VerificationConflict[];
+  unverifiedClaims: string[];
+  recommendedNextVerification: string;
 }
 

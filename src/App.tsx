@@ -21,13 +21,14 @@ import ClientsProjects from './components/admin/ClientsProjects';
 import CareerEngineView from './components/admin/CareerEngineView';
 import KnowledgeBaseView from './components/admin/KnowledgeBaseView';
 import RevenueCampaign from './components/admin/RevenueCampaign';
+import VerificationEngineView from './components/admin/VerificationEngineView';
 
 import { api } from './lib/api';
 import { Prospect } from './types';
 import { auth, googleProvider, signInWithEmailAndPassword, signInWithPopup, onIdTokenChanged, signOut } from './lib/firebase';
 import { 
   Shield, User, Lock, Terminal, LayoutDashboard, Sparkles, Send, 
-  Layers, Users, CheckSquare, BookOpen, Key, Loader2, AlertCircle, X, HelpCircle, TrendingUp 
+  Layers, Users, CheckSquare, BookOpen, Key, Loader2, AlertCircle, X, HelpCircle, TrendingUp, ShieldCheck 
 } from 'lucide-react';
 
 export default function App() {
@@ -247,6 +248,7 @@ export default function App() {
               {[
                 { key: 'overview', label: 'Console Overview', icon: LayoutDashboard },
                 { key: 'prospects', label: 'Prospect Intelligence', icon: Users },
+                { key: 'verification', label: 'Live Verification', icon: ShieldCheck },
                 { key: 'closer_agent', label: 'Closer Agent AI', icon: Shield },
                 { key: 'crm', label: 'Pipeline CRM', icon: Layers },
                 { key: 'revenue', label: 'Campaign & Revenue', icon: TrendingUp },
@@ -352,6 +354,13 @@ export default function App() {
                   onSelectProspectForAudit={handleTriggerAuditTab}
                   onSelectProspectForOutreach={handleTriggerOutreachTab}
                   onSelectProspectForCloser={handleTriggerCloserTab}
+                />
+              )}
+
+              {activeAdminTab === 'verification' && (
+                <VerificationEngineView
+                  prospects={prospects}
+                  onRefreshProspects={loadProspects}
                 />
               )}
 

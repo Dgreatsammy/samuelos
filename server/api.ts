@@ -9,6 +9,13 @@ import {
   generateCareerEvidenceAI 
 } from './gemini';
 import { runCloserAgentAnalysis } from './closer_agent_service';
+import { 
+  runLiveVerificationPipeline, 
+  classifyOutreachClaim, 
+  detectEvidenceConflicts,
+  calculateFreshness,
+  normalizeDomain
+} from './verification_engine';
 import { Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, ScoreDetails, RevenueRecord } from '../src/types';
 
 export const apiRouter = Router();
@@ -473,6 +480,83 @@ apiRouter.post('/prospects/import', requireAdmin, async (req: Request, res: Resp
     res.json({ success: true, count: imported.length, imported });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to import CSV' });
+  }
+});
+
+// Phase 1 Live Business Verification Engine Routes
+apiRouter.post('/admin/verification/prospects/:prospectId/verify', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { prospectId } = req.params;
+    const auditOutput = await runLiveVerificationPipeline(prospectId);
+    res.json({ success: true, audit: auditOutput });
+  } catch (err: any) {
+    console.error('Live verification pipeline failed:', err);
+    res.status(500).json({ success: false, message: err.message || 'Verification pipeline execution failed' });
+  }
+});
+
+apiRouter.get('/admin/verification/prospects/:prospectId', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { prospectId } = req.params;
+    const prospects = await db.getProspects();
+    const prospect = prospects.find(p => p.id === prospectId);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: 'Prospect not found' });
+    }
+
+    const records = await db.getEvidenceRecords(prospectId);
+    for (const r of records) {
+      r.freshness = calculateFreshness(r.observedAt);
+    }
+    const conflicts = await db.getVerificationConflicts(prospectId);
+
+    const currentlyVerified = records.filter(r => r.status === 'VERIFIED' && (r.freshness === 'CURRENT' || r.freshness === 'RECENT'));
+    const recentEvidence = records.filter(r => r.freshness === 'RECENT');
+    const staleEvidence = records.filter(r => r.freshness === 'STALE' || r.freshness === 'HISTORICAL');
+
+    const auditOutput = {
+      prospectId: prospect.id,
+      businessName: prospect.businessName,
+      domain: normalizeDomain(prospect.websiteUrl || ''),
+      lastVerifiedAt: prospect.lastVerifiedAt || new Date().toISOString(),
+      overallStatus: prospect.evidenceStatus || (conflicts.length > 0 ? 'PARTIALLY_VERIFIED' : 'UNVERIFIED'),
+      confidenceScore: prospect.dataConfidenceScore || 50,
+      currentlyVerified,
+      recentEvidence,
+      staleEvidence,
+      conflicts,
+      unverifiedClaims: records.filter(r => r.status === 'UNVERIFIED').map(r => r.claim),
+      recommendedNextVerification: conflicts.length > 0 
+        ? 'Direct domain verification currently failed, while indexed pages remain discoverable. Run manual registry check or domain WHOIS lookup.' 
+        : 'Run live verification pipeline to refresh findings.'
+    };
+
+    res.json({ success: true, audit: auditOutput, records, conflicts });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to fetch verification audit' });
+  }
+});
+
+apiRouter.get('/admin/verification/conflicts', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const conflicts = await db.getVerificationConflicts();
+    res.json({ success: true, conflicts });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: 'Failed to fetch verification conflicts' });
+  }
+});
+
+apiRouter.post('/admin/verification/claim-check', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const { claimText, prospectId } = req.body;
+    if (!claimText) {
+      return res.status(400).json({ success: false, message: 'claimText is required' });
+    }
+    const records = prospectId ? await db.getEvidenceRecords(prospectId) : [];
+    const classification = classifyOutreachClaim(claimText, records);
+    res.json({ success: true, claimText, classification, prospectId });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Claim classification failed' });
   }
 });
 

@@ -1,5 +1,5 @@
 import { 
-  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, DiscoveryMeeting, Proposal, RevenueRecord 
+  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, DiscoveryMeeting, Proposal, RevenueRecord, ProspectVerificationAudit, EvidenceRecord, VerificationConflict, ClaimClassification 
 } from '../types';
 import { auth } from './firebase';
 
@@ -295,5 +295,22 @@ export const api = {
   },
   async deleteRevenueRecord(id: string): Promise<void> {
     return fetchAPI(`/revenue-records/${id}`, { method: 'DELETE' });
+  },
+
+  // Live Business Verification Engine (Phase 1)
+  async getVerificationAudit(prospectId: string): Promise<{ success: boolean; audit: ProspectVerificationAudit; records: EvidenceRecord[]; conflicts: VerificationConflict[] }> {
+    return fetchAPI(`/admin/verification/prospects/${prospectId}`);
+  },
+  async runLiveVerification(prospectId: string): Promise<{ success: boolean; audit: ProspectVerificationAudit }> {
+    return fetchAPI(`/admin/verification/prospects/${prospectId}/verify`, { method: 'POST' });
+  },
+  async getVerificationConflicts(): Promise<{ success: boolean; conflicts: VerificationConflict[] }> {
+    return fetchAPI('/admin/verification/conflicts');
+  },
+  async classifyClaim(claimText: string, prospectId?: string): Promise<{ success: boolean; claimText: string; classification: ClaimClassification; prospectId?: string }> {
+    return fetchAPI('/admin/verification/claim-check', {
+      method: 'POST',
+      body: JSON.stringify({ claimText, prospectId }),
+    });
   }
 };

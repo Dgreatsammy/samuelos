@@ -13,7 +13,7 @@ import {
   deleteDoc as clientDeleteDoc 
 } from 'firebase/firestore';
 import { 
-  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, WebsiteStatus, PipelineStatus, DiscoveryMeeting, Proposal, RevenueRecord
+  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, WebsiteStatus, PipelineStatus, DiscoveryMeeting, Proposal, RevenueRecord, EvidenceRecord, VerificationConflict
 } from '../src/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -1398,6 +1398,107 @@ export class Database {
       console.warn("Firestore error in deleteRevenueRecord, falling back:", e.message || e);
       useLocalFallback = true;
       return this.deleteRevenueRecord(id);
+    }
+  }
+
+  // Evidence Records Operations (Phase 1 Live Verification Engine)
+  async getEvidenceRecords(prospectId?: string): Promise<EvidenceRecord[]> {
+    if (useLocalFallback) {
+      const records = await loadLocalCollection<EvidenceRecord[]>('evidence_records', []);
+      return prospectId ? records.filter(r => r.prospectId === prospectId) : records;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) {
+        const records = await loadLocalCollection<EvidenceRecord[]>('evidence_records', []);
+        return prospectId ? records.filter(r => r.prospectId === prospectId) : records;
+      }
+      const snap = await firestore.collection('evidence_records').get();
+      const docs = snap.docs.map(doc => doc.data() as EvidenceRecord);
+      return prospectId ? docs.filter(r => r.prospectId === prospectId) : docs;
+    } catch (e: any) {
+      console.warn("Firestore error in getEvidenceRecords, falling back:", e.message || e);
+      useLocalFallback = true;
+      const records = await loadLocalCollection<EvidenceRecord[]>('evidence_records', []);
+      return prospectId ? records.filter(r => r.prospectId === prospectId) : records;
+    }
+  }
+
+  async saveEvidenceRecord(record: EvidenceRecord): Promise<EvidenceRecord> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<EvidenceRecord[]>('evidence_records', []);
+      const index = list.findIndex(item => item.evidenceId === record.evidenceId);
+      if (index >= 0) {
+        list[index] = record;
+      } else {
+        list.push(record);
+      }
+      await saveLocalCollection('evidence_records', list);
+      return record;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.saveEvidenceRecord(record);
+      await firestore.collection('evidence_records').doc(record.evidenceId).set(record, { merge: true });
+      return record;
+    } catch (e: any) {
+      console.warn("Firestore error in saveEvidenceRecord, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.saveEvidenceRecord(record);
+    }
+  }
+
+  async saveEvidenceRecords(records: EvidenceRecord[]): Promise<EvidenceRecord[]> {
+    for (const record of records) {
+      await this.saveEvidenceRecord(record);
+    }
+    return records;
+  }
+
+  // Verification Conflicts Operations
+  async getVerificationConflicts(prospectId?: string): Promise<VerificationConflict[]> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<VerificationConflict[]>('verification_conflicts', []);
+      return prospectId ? list.filter(c => c.prospectId === prospectId) : list;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) {
+        const list = await loadLocalCollection<VerificationConflict[]>('verification_conflicts', []);
+        return prospectId ? list.filter(c => c.prospectId === prospectId) : list;
+      }
+      const snap = await firestore.collection('verification_conflicts').get();
+      const docs = snap.docs.map(doc => doc.data() as VerificationConflict);
+      return prospectId ? docs.filter(c => c.prospectId === prospectId) : docs;
+    } catch (e: any) {
+      console.warn("Firestore error in getVerificationConflicts, falling back:", e.message || e);
+      useLocalFallback = true;
+      const list = await loadLocalCollection<VerificationConflict[]>('verification_conflicts', []);
+      return prospectId ? list.filter(c => c.prospectId === prospectId) : list;
+    }
+  }
+
+  async saveVerificationConflict(conflict: VerificationConflict): Promise<VerificationConflict> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<VerificationConflict[]>('verification_conflicts', []);
+      const index = list.findIndex(item => item.id === conflict.id);
+      if (index >= 0) {
+        list[index] = conflict;
+      } else {
+        list.push(conflict);
+      }
+      await saveLocalCollection('verification_conflicts', list);
+      return conflict;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.saveVerificationConflict(conflict);
+      await firestore.collection('verification_conflicts').doc(conflict.id).set(conflict, { merge: true });
+      return conflict;
+    } catch (e: any) {
+      console.warn("Firestore error in saveVerificationConflict, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.saveVerificationConflict(conflict);
     }
   }
 
