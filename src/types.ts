@@ -319,3 +319,19 @@ export interface Proposal {
   isDemo?: boolean;
 }
 
+export interface RevenueRecord {
+  id: string;
+  prospectId: string;
+  proposalId?: string;
+  amountReceived: number;
+  currency: 'NGN' | 'USD';
+  paymentMethod: string;
+  transactionRef: string;
+  paymentDate: string;
+  recordedTimestamp: string;
+  humanVerificationConfirmed: boolean;
+  dataOrigin: 'production' | 'demo';
+  recordedBy: string;
+  notes?: string;
+}
+

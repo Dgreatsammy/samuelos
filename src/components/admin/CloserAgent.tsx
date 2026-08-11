@@ -655,7 +655,7 @@ export default function CloserAgent({
                     </button>
                   )}
 
-                  {(currentOutreach.status === 'READY_FOR_APPROVAL' || currentOutreach.status === 'AWAITING_APPROVAL' || currentOutreach.status === 'DRAFT') && (
+                  {(currentOutreach.status === 'READY_FOR_APPROVAL' || currentOutreach.status === 'AWAITING_APPROVAL') && (
                     <button
                       onClick={() => handleTransitionStatus('APPROVED', 'Authorizing outreach copy sending')}
                       className="px-3 py-1.5 bg-emerald-600 text-white font-mono text-[10px] font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
@@ -664,7 +664,7 @@ export default function CloserAgent({
                     </button>
                   )}
 
-                  {(currentOutreach.status === 'APPROVED' || currentOutreach.status === 'AWAITING_APPROVAL') && (
+                  {currentOutreach.status === 'APPROVED' && (
                     <button
                       onClick={() => {
                         const confirmed = window.confirm(`Confirm Manual Send:\n\nHave you manually delivered this outreach message to ${currentProspect?.businessName || 'prospect'}?\n\nClick OK to update status to SENT and move lead stage to Contacted.`);

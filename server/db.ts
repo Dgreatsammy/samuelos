@@ -13,7 +13,7 @@ import {
   deleteDoc as clientDeleteDoc 
 } from 'firebase/firestore';
 import { 
-  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, WebsiteStatus, PipelineStatus, DiscoveryMeeting, Proposal
+  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, WebsiteStatus, PipelineStatus, DiscoveryMeeting, Proposal, RevenueRecord
 } from '../src/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -1341,6 +1341,63 @@ export class Database {
       console.warn("Firestore error in deleteProposal, falling back:", e.message || e);
       useLocalFallback = true;
       return this.deleteProposal(id);
+    }
+  }
+
+  // Revenue Records Operations
+  async getRevenueRecords(): Promise<RevenueRecord[]> {
+    if (useLocalFallback) return loadLocalCollection('revenue_records', []);
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return loadLocalCollection('revenue_records', []);
+      const snap = await firestore.collection('revenue_records').get();
+      return snap.docs.map(doc => doc.data() as RevenueRecord);
+    } catch (e: any) {
+      console.warn("Firestore error in getRevenueRecords, falling back:", e.message || e);
+      useLocalFallback = true;
+      return loadLocalCollection('revenue_records', []);
+    }
+  }
+
+  async saveRevenueRecord(record: RevenueRecord): Promise<RevenueRecord> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<RevenueRecord[]>('revenue_records', []);
+      const index = list.findIndex(item => item.id === record.id);
+      if (index >= 0) {
+        list[index] = record;
+      } else {
+        list.push(record);
+      }
+      await saveLocalCollection('revenue_records', list);
+      return record;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.saveRevenueRecord(record);
+      await firestore.collection('revenue_records').doc(record.id).set(record, { merge: true });
+      return record;
+    } catch (e: any) {
+      console.warn("Firestore error in saveRevenueRecord, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.saveRevenueRecord(record);
+    }
+  }
+
+  async deleteRevenueRecord(id: string): Promise<void> {
+    if (useLocalFallback) {
+      const list = await loadLocalCollection<RevenueRecord[]>('revenue_records', []);
+      const filtered = list.filter(item => item.id !== id);
+      await saveLocalCollection('revenue_records', filtered);
+      return;
+    }
+    try {
+      await ensureMigrated();
+      if (useLocalFallback) return this.deleteRevenueRecord(id);
+      await firestore.collection('revenue_records').doc(id).delete();
+    } catch (e: any) {
+      console.warn("Firestore error in deleteRevenueRecord, falling back:", e.message || e);
+      useLocalFallback = true;
+      return this.deleteRevenueRecord(id);
     }
   }
 

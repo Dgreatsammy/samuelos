@@ -3,7 +3,7 @@ import {
   api 
 } from '../../lib/api';
 import { 
-  Prospect, DiscoveryMeeting, Proposal, Client, Project 
+  Prospect, DiscoveryMeeting, Proposal, Client, Project, RevenueRecord 
 } from '../../types';
 import { 
   TrendingUp, Users, Calendar, FileText, Plus, Trash2, Check, X, 
@@ -22,6 +22,7 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [revenueRecords, setRevenueRecords] = useState<RevenueRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -88,17 +89,19 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
     setLoading(true);
     setError('');
     try {
-      const [meetingsData, proposalsData, clientsData, projectsData] = await Promise.all([
+      const [meetingsData, proposalsData, clientsData, projectsData, revRecordsData] = await Promise.all([
         api.getDiscoveryMeetings(),
         api.getProposals(),
         api.getClients(),
-        api.getProjects()
+        api.getProjects(),
+        api.getRevenueRecords()
       ]);
       setMeetings(meetingsData);
       setProposals(proposalsData);
       // Filter out demo data to keep production metrics genuine
       setClients(clientsData.filter(c => !c.isDemo));
       setProjects(projectsData.filter(p => !p.isDemo));
+      setRevenueRecords(revRecordsData.filter(r => r.humanVerificationConfirmed && r.dataOrigin !== 'demo'));
     } catch (err: any) {
       console.error('Failed to load Campaign and Revenue data:', err);
       setError('Failed to sync workspace metrics with Firestore database.');
@@ -270,26 +273,29 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
 
     setSubmitting(true);
     try {
-      // Record payment receipt on matching proposal if present
       const matchingProp = proposals.find(p => p.prospectId === selectedProspectForRevenue.id);
-      if (matchingProp) {
-        await api.saveProposal({
-          ...matchingProp,
-          status: 'NEGOTIATION',
-          paymentTerms: `${matchingProp.paymentTerms || ''} | Verified Deposit: ${revenueData.currency} ${revenueData.cashReceivedAmount} (Ref: ${revenueData.transactionRef}, Date: ${revenueData.paymentDate}, Method: ${revenueData.paymentMethod})`
-        });
-      }
 
-      // Record verified payment log on prospect
-      const updatedProspect: Prospect = {
-        ...selectedProspectForRevenue,
-        notes: `${selectedProspectForRevenue.notes || ''}\n\n[Payment Receipt Verified - ${revenueData.paymentDate}]\nAmount Received: ${revenueData.currency} ${revenueData.cashReceivedAmount}\nTxn Reference: ${revenueData.transactionRef}\nPayment Method: ${revenueData.paymentMethod}`
+      const recordPayload: RevenueRecord = {
+        id: `rev-${Date.now()}`,
+        prospectId: selectedProspectForRevenue.id,
+        proposalId: matchingProp?.id,
+        amountReceived: Number(revenueData.cashReceivedAmount),
+        currency: revenueData.currency,
+        paymentMethod: revenueData.paymentMethod,
+        transactionRef: revenueData.transactionRef.trim(),
+        paymentDate: revenueData.paymentDate || new Date().toISOString().split('T')[0],
+        recordedTimestamp: new Date().toISOString(),
+        humanVerificationConfirmed: true,
+        dataOrigin: 'production',
+        recordedBy: 'Samuel Oluwadamilare',
+        notes: revenueData.notes || ''
       };
-      await api.saveProspect(updatedProspect);
+
+      await api.saveRevenueRecord(recordPayload);
 
       setShowRevenueModal(false);
       setSelectedProspectForRevenue(null);
-      alert(`Payment receipt recorded successfully!\n\nNote: In strict alignment with SamuelOS commercial state rules, recording revenue does NOT automatically create a Client or Project. Click 'Convert to Active Client' when you are ready to onboard.`);
+      alert(`Verified payment receipt recorded successfully!\nTransaction Ref: ${recordPayload.transactionRef}\n\nNote: In strict alignment with SamuelOS commercial state rules, recording revenue does NOT automatically create a Client or Project. Click 'Convert to Active Client' when you are ready to onboard.`);
       onRefresh();
       await loadData();
     } catch (err: any) {
@@ -364,14 +370,14 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
     }
   };
 
-  // Helper values - Strict Demo Protection for Revenue Metrics
-  const totalActualRevenue = projects
-    .filter(p => !p.isDemo && p.dataOrigin !== 'demo' && p.clientId !== 'c-1' && p.id !== 'proj-1')
-    .reduce((sum, p) => sum + (p.value || 0), 0);
+  // Helper values - Strict Demo Protection & Verified Revenue Records
+  const totalActualRevenue = revenueRecords
+    .filter(r => r.currency === 'USD')
+    .reduce((sum, r) => sum + (r.amountReceived || 0), 0);
 
-  const totalActualRevenueNGN = projects
-    .filter(p => !p.isDemo && p.dataOrigin !== 'demo' && p.clientId !== 'c-1' && p.id !== 'proj-1' && p.notes?.includes('NGN'))
-    .reduce((sum, p) => sum + (p.value || 0), 0);
+  const totalActualRevenueNGN = revenueRecords
+    .filter(r => r.currency === 'NGN')
+    .reduce((sum, r) => sum + (r.amountReceived || 0), 0);
 
   // Filter 5-10 Prospects for First Client Campaign (Phase 4E)
   const campaignProspects = prospects
@@ -806,45 +812,114 @@ export default function RevenueCampaign({ prospects, onRefresh }: RevenueCampaig
           {/* TAB 5: REVENUE */}
           {activeTab === 'revenue' && (
             <div className="space-y-6 text-left">
-              <h3 className="font-display text-lg font-bold text-slate-900">Manual Client Onboarding & Revenue Validation</h3>
-              <p className="text-xs text-slate-500">
-                Record verified payment receipts and manually onboard qualified leads into active client accounts.
-              </p>
+              <div>
+                <h3 className="font-display text-lg font-bold text-slate-900">Manual Client Onboarding & Revenue Validation</h3>
+                <p className="text-xs text-slate-500">
+                  Record verified payment receipts and manually onboard qualified leads into active client accounts.
+                </p>
+              </div>
 
-              {prospects.filter(p => p.status !== 'Won').length === 0 ? (
-                <div className="border border-dashed border-slate-200 rounded-3xl p-8 text-center text-slate-500 text-xs">
-                  No pending prospects in pipeline to onboard.
+              {/* SECTION: VERIFIED REVENUE LEDGER */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-display font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-indigo-600" /> Recorded Payment Receipts Ledger
+                  </h4>
+                  <span className="font-mono text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold">
+                    {revenueRecords.length} VERIFIED {revenueRecords.length === 1 ? 'RECORD' : 'RECORDS'}
+                  </span>
                 </div>
-              ) : (
-                <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden divide-y divide-slate-100">
-                  {prospects
-                    .filter(p => p.status !== 'Won')
-                    .map(p => (
-                      <div key={p.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-50/50 transition-colors">
-                        <div>
-                          <h4 className="font-display font-bold text-slate-900 text-xs">{p.businessName}</h4>
-                          <p className="text-[10px] font-mono text-slate-400">
-                            Location: {p.location} &bull; Stage: <strong className="text-slate-700">{p.status}</strong> &bull; Gap Score: {p.leadScore}
-                          </p>
+
+                {revenueRecords.length === 0 ? (
+                  <div className="border border-dashed border-slate-200 bg-slate-50/50 rounded-2xl p-6 text-center text-slate-400 text-xs">
+                    No verified revenue receipts recorded yet. Click &quot;Record Payment Receipt&quot; below to record a verified payment.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-xs divide-y divide-slate-100">
+                    <div className="bg-slate-50 px-4 py-2.5 grid grid-cols-12 text-[10px] font-mono font-bold text-slate-500 uppercase tracking-wider">
+                      <span className="col-span-3">Txn Ref</span>
+                      <span className="col-span-3">Prospect / Client</span>
+                      <span className="col-span-2 text-right">Amount</span>
+                      <span className="col-span-2 text-center">Date</span>
+                      <span className="col-span-2 text-center">Method</span>
+                    </div>
+                    {revenueRecords.map(rec => {
+                      const matchedP = prospects.find(p => p.id === rec.prospectId);
+                      return (
+                        <div key={rec.id} className="px-4 py-3 grid grid-cols-12 items-center text-xs hover:bg-slate-50/50 transition-colors">
+                          <span className="col-span-3 font-mono text-[11px] font-bold text-slate-900 truncate" title={rec.transactionRef}>
+                            {rec.transactionRef}
+                          </span>
+                          <span className="col-span-3 font-medium text-slate-700 truncate">
+                            {matchedP?.businessName || rec.prospectId}
+                          </span>
+                          <span className="col-span-2 text-right font-mono font-bold text-emerald-700">
+                            {rec.currency} {rec.amountReceived.toLocaleString()}
+                          </span>
+                          <span className="col-span-2 text-center font-mono text-[10px] text-slate-500">
+                            {rec.paymentDate}
+                          </span>
+                          <span className="col-span-2 text-center font-mono text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                            {rec.paymentMethod}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleTriggerRevenueModal(p)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
-                          >
-                            <DollarSign className="w-3 h-3" /> Record Payment Receipt
-                          </button>
-                          <button
-                            onClick={() => handleConvertToClient(p)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-950 hover:bg-slate-900 text-white font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
-                          >
-                            <Users className="w-3 h-3" /> Convert to Active Client
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION: PIPELINE ONBOARDING */}
+              <div className="space-y-3 pt-4 border-t border-slate-200">
+                <h4 className="font-display font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-600" /> Pipeline Leads Ready for Onboarding
+                </h4>
+
+                {prospects.filter(p => p.status !== 'Won').length === 0 ? (
+                  <div className="border border-dashed border-slate-200 rounded-3xl p-8 text-center text-slate-500 text-xs">
+                    No pending prospects in pipeline to onboard.
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden divide-y divide-slate-100">
+                    {prospects
+                      .filter(p => p.status !== 'Won')
+                      .map(p => {
+                        const hasVerifiedRev = revenueRecords.some(r => r.prospectId === p.id && r.humanVerificationConfirmed);
+                        return (
+                          <div key={p.id} className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-slate-50/50 transition-colors">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-display font-bold text-slate-900 text-xs">{p.businessName}</h4>
+                                {hasVerifiedRev && (
+                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-mono px-1.5 py-0.5 rounded font-bold">
+                                    VERIFIED REVENUE
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] font-mono text-slate-400">
+                                Location: {p.location} &bull; Stage: <strong className="text-slate-700">{p.status}</strong> &bull; Gap Score: {p.leadScore}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleTriggerRevenueModal(p)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
+                              >
+                                <DollarSign className="w-3 h-3" /> Record Payment Receipt
+                              </button>
+                              <button
+                                onClick={() => handleConvertToClient(p)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-950 hover:bg-slate-900 text-white font-mono text-[10px] uppercase font-bold rounded-lg cursor-pointer"
+                              >
+                                <Users className="w-3 h-3" /> Convert to Active Client
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

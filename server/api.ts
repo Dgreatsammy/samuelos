@@ -9,7 +9,7 @@ import {
   generateCareerEvidenceAI 
 } from './gemini';
 import { runCloserAgentAnalysis } from './closer_agent_service';
-import { Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, ScoreDetails } from '../src/types';
+import { Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, ScoreDetails, RevenueRecord } from '../src/types';
 
 export const apiRouter = Router();
 
@@ -269,6 +269,19 @@ apiRouter.get('/prospects', requireAdmin, async (req: Request, res: Response) =>
 apiRouter.post('/prospects', requireAdmin, async (req: Request, res: Response) => {
   const prospect = req.body as Prospect;
   
+  // Rule: Prospect cannot be set to Contacted stage unless an outreach draft for this prospect is APPROVED or SENT
+  if (prospect.status === 'Contacted') {
+    const outreaches = await db.getOutreaches();
+    const outreach = outreaches.find(o => o.prospectId === prospect.id);
+    const statusUpper = (outreach?.status || '').toUpperCase();
+    if (!outreach || (statusUpper !== 'APPROVED' && statusUpper !== 'SENT')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Prospect stage cannot be set to Contacted unless outreach status is APPROVED or SENT.'
+      });
+    }
+  }
+
   // Re-calculate score and priority before saving
   if (prospect.scoreDetails) {
     const calculated = calculateLeadScore(prospect.scoreDetails);
@@ -285,6 +298,83 @@ apiRouter.delete('/prospects/:id', requireAdmin, async (req: Request, res: Respo
   res.json({ success: true });
 });
 
+// Revenue Records API
+apiRouter.get('/revenue-records', requireAdmin, async (req: Request, res: Response) => {
+  const records = await db.getRevenueRecords();
+  res.json(records);
+});
+
+apiRouter.post('/revenue-records', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const record = req.body as RevenueRecord;
+
+    if (!record.prospectId) {
+      return res.status(400).json({ success: false, message: 'Prospect ID is required for revenue record.' });
+    }
+
+    const prospects = await db.getProspects();
+    const prospect = prospects.find(p => p.id === record.prospectId);
+    if (!prospect) {
+      return res.status(404).json({ success: false, message: 'Prospect not found.' });
+    }
+
+    // BLOCKER 6: Demo Record Isolation
+    if ((prospect as any).isDemo || prospect.id.startsWith('p-demo') || (prospect as any).dataOrigin === 'demo' || record.dataOrigin === 'demo') {
+      return res.status(400).json({ success: false, message: 'Demo Record Protection: Real revenue records cannot be created for demo prospects.' });
+    }
+
+    if (!record.transactionRef || !record.transactionRef.trim()) {
+      return res.status(400).json({ success: false, message: 'Transaction reference entered manually by Samuel is required. Auto-generation is forbidden.' });
+    }
+
+    if (!record.amountReceived || Number(record.amountReceived) <= 0) {
+      return res.status(400).json({ success: false, message: 'Amount received must be greater than zero.' });
+    }
+
+    if (!record.humanVerificationConfirmed) {
+      return res.status(400).json({ success: false, message: 'Human verification confirmation is required to record revenue.' });
+    }
+
+    const userEmail = (req as any).user?.email || 'Samuel Oluwadamilare';
+
+    const cleanRecord: RevenueRecord = {
+      id: record.id || `rev-${Date.now()}`,
+      prospectId: record.prospectId,
+      proposalId: record.proposalId || undefined,
+      amountReceived: Number(record.amountReceived),
+      currency: record.currency || 'NGN',
+      paymentMethod: record.paymentMethod || 'Bank Transfer',
+      transactionRef: record.transactionRef.trim(),
+      paymentDate: record.paymentDate || new Date().toISOString().split('T')[0],
+      recordedTimestamp: new Date().toISOString(),
+      humanVerificationConfirmed: true,
+      dataOrigin: 'production',
+      recordedBy: userEmail,
+      notes: record.notes || ''
+    };
+
+    const saved = await db.saveRevenueRecord(cleanRecord);
+
+    // Update proposal payment terms if proposalId attached
+    if (record.proposalId) {
+      const proposals = await db.getProposals();
+      const prop = proposals.find(p => p.id === record.proposalId);
+      if (prop) {
+        prop.paymentTerms = `Verified Payment Received: ${cleanRecord.currency} ${cleanRecord.amountReceived} (Txn Ref: ${cleanRecord.transactionRef}, Date: ${cleanRecord.paymentDate})`;
+        await db.saveProposal(prop);
+      }
+    }
+
+    // Append payment log to prospect notes
+    prospect.notes = `${prospect.notes || ''}\n\n[Verified Revenue Record - ${cleanRecord.paymentDate}]\nAmount: ${cleanRecord.currency} ${cleanRecord.amountReceived}\nTxn Ref: ${cleanRecord.transactionRef}\nMethod: ${cleanRecord.paymentMethod}\nRecorded By: ${userEmail}`;
+    await db.saveProspect(prospect);
+
+    res.json({ success: true, record: saved });
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Failed to save revenue record.' });
+  }
+});
+
 // Manual Prospect-to-Client Conversion Endpoint
 apiRouter.post('/prospects/:id/convert-to-client', requireAdmin, async (req: Request, res: Response) => {
   try {
@@ -297,13 +387,39 @@ apiRouter.post('/prospects/:id/convert-to-client', requireAdmin, async (req: Req
       return res.status(404).json({ success: false, message: 'Prospect not found' });
     }
 
+    // BLOCKER 6: Demo Record Protection
+    if ((prospect as any).isDemo || prospect.id.startsWith('p-demo') || (prospect as any).dataOrigin === 'demo') {
+      return res.status(400).json({ success: false, message: 'Demo Record Protection: Demo/sample prospects cannot be converted to production clients.' });
+    }
+
+    // BLOCKER 4: Verified Revenue Check Required
+    const revenueRecords = await db.getRevenueRecords();
+    const verifiedPayments = revenueRecords.filter(
+      r => r.prospectId === id && r.humanVerificationConfirmed && r.amountReceived > 0 && r.dataOrigin !== 'demo'
+    );
+
+    if (verifiedPayments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Client conversion requires a verified payment record. Please record a verified payment receipt first in the Revenue Control Center.'
+      });
+    }
+
     const userEmail = (req as any).user?.email || 'Samuel Oluwadamilare';
 
     // 1. Update prospect status to 'Won'
     prospect.status = 'Won';
     await db.saveProspect(prospect);
 
-    // 2. Create client record with explicit human authorization metadata
+    // 2. Update matching proposals to WON
+    const proposals = await db.getProposals();
+    const matchingProposals = proposals.filter(p => p.prospectId === id);
+    for (const prop of matchingProposals) {
+      prop.status = 'WON';
+      await db.saveProposal(prop);
+    }
+
+    // 3. Create client record with verified payment receipt details
     const newClient: Client = {
       id: `c-${Date.now()}`,
       name: clientName || prospect.businessName,
@@ -312,7 +428,7 @@ apiRouter.post('/prospects/:id/convert-to-client', requireAdmin, async (req: Req
       phone: contactPhone || prospect.phone || '',
       source: prospect.source || 'Outreach campaign',
       services: [prospect.recommendedOfferId || 'o-audit'],
-      notes: notes || `Converted from prospect ${id}. Notes: ${prospect.notes || ''}`,
+      notes: notes || `Converted from prospect ${id}. Verified Payments: ${verifiedPayments.map(vp => `${vp.currency} ${vp.amountReceived} (Ref: ${vp.transactionRef})`).join(', ')}`,
       status: 'Active',
       isDemo: false,
       dataOrigin: `prospect-conversion-${id}-${Date.now()}`,
@@ -322,7 +438,7 @@ apiRouter.post('/prospects/:id/convert-to-client', requireAdmin, async (req: Req
     };
 
     const savedClient = await db.saveClient(newClient);
-    res.json({ success: true, client: savedClient, prospect });
+    res.json({ success: true, client: savedClient, prospect, verifiedPayments });
   } catch (err: any) {
     res.status(500).json({ success: false, message: err.message || 'Failed to convert prospect' });
   }
@@ -537,6 +653,39 @@ apiRouter.post('/outreaches', requireAdmin, async (req: Request, res: Response) 
   const userEmail = (req as any).user?.email || 'Samuel Oluwadamilare';
 
   if (existing) {
+    const oldNorm = (existing.status || 'DRAFT').toUpperCase().replace(/_/g, '');
+    const newNorm = (outreach.status || 'DRAFT').toUpperCase().replace(/_/g, '');
+
+    // BLOCKER 1: ENFORCE STRICT OUTREACH STATE TRANSITIONS
+    // Progression: DRAFT -> AWAITING_EVIDENCE_VERIFICATION -> READY_FOR_APPROVAL / AWAITING_APPROVAL -> APPROVED -> SENT
+    if (oldNorm === 'DRAFT' && newNorm !== 'DRAFT' && newNorm !== 'AWAITINGEVIDENCEVERIFICATION') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transition: Draft outreach cannot jump directly to approval/sending. Progression required: DRAFT -> AWAITING_EVIDENCE_VERIFICATION -> READY_FOR_APPROVAL -> APPROVED -> SENT'
+      });
+    }
+
+    if (oldNorm === 'AWAITINGEVIDENCEVERIFICATION' && newNorm !== 'AWAITINGEVIDENCEVERIFICATION' && newNorm !== 'DRAFT' && newNorm !== 'READYFORAPPROVAL' && newNorm !== 'AWAITINGAPPROVAL') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transition: AWAITING_EVIDENCE_VERIFICATION cannot transition directly to APPROVED or SENT. Must be marked READY_FOR_APPROVAL first.'
+      });
+    }
+
+    if ((oldNorm === 'READYFORAPPROVAL' || oldNorm === 'AWAITINGAPPROVAL') && newNorm !== 'READYFORAPPROVAL' && newNorm !== 'AWAITINGAPPROVAL' && newNorm !== 'AWAITINGEVIDENCEVERIFICATION' && newNorm !== 'APPROVED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transition: Cannot transition directly to SENT from pre-approval stage. Outreach must be APPROVED first.'
+      });
+    }
+
+    if (oldNorm === 'APPROVED' && newNorm !== 'APPROVED' && newNorm !== 'READYFORAPPROVAL' && newNorm !== 'AWAITINGAPPROVAL' && newNorm !== 'SENT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transition: APPROVED outreach can only transition to SENT.'
+      });
+    }
+
     outreach.auditLogs = existing.auditLogs || [];
     if (existing.status !== outreach.status) {
       outreach.auditLogs.push({
@@ -548,6 +697,15 @@ apiRouter.post('/outreaches', requireAdmin, async (req: Request, res: Response) 
       });
     }
   } else {
+    // New outreach draft cannot be directly created in APPROVED or SENT status
+    const newNorm = (outreach.status || 'DRAFT').toUpperCase().replace(/_/g, '');
+    if (newNorm === 'APPROVED' || newNorm === 'SENT') {
+      return res.status(400).json({
+        success: false,
+        message: 'New outreach drafts cannot be created directly in APPROVED or SENT status.'
+      });
+    }
+
     outreach.auditLogs = outreach.auditLogs || [];
     outreach.auditLogs.push({
       previous_status: 'INITIAL_CREATION',
@@ -646,6 +804,30 @@ apiRouter.get('/projects', requireAdmin, async (req: Request, res: Response) => 
 
 apiRouter.post('/projects', requireAdmin, async (req: Request, res: Response) => {
   const project = req.body as Project;
+
+  // BLOCKER 5: Project payment status must NOT be fabricated
+  // Check if linked to client / prospect with verified revenue records
+  const clients = await db.getClients();
+  const client = clients.find(c => c.id === project.clientId);
+  const originatingProspectId = client?.originatingProspectId;
+
+  const revenueRecords = await db.getRevenueRecords();
+  const verifiedPayments = revenueRecords.filter(
+    r => (r.prospectId === originatingProspectId || r.prospectId === project.clientId) &&
+         r.humanVerificationConfirmed && r.amountReceived > 0 && r.dataOrigin !== 'demo'
+  );
+
+  const totalVerifiedPayments = verifiedPayments.reduce((sum, r) => sum + r.amountReceived, 0);
+
+  if (project.paymentStatus === 'Paid' && totalVerifiedPayments < (project.value || 0)) {
+    if (totalVerifiedPayments > 0) {
+      project.paymentStatus = 'Partial';
+    } else {
+      project.paymentStatus = 'Unpaid';
+    }
+    project.notes = `${project.notes || ''}\n\n[Payment Rule Guard] Project payment status set to '${project.paymentStatus}' because verified payments (${totalVerifiedPayments}) do not cover project value (${project.value}).`;
+  }
+
   const saved = await db.saveProject(project);
 
   // If marked completed, automatically check if we should create a Case Study or Career entry skeleton
@@ -654,8 +836,6 @@ apiRouter.post('/projects', requireAdmin, async (req: Request, res: Response) =>
     const hasCS = caseStudies.some(cs => cs.projectId === project.id);
     if (!hasCS) {
       // Draft a case study skeleton
-      const clients = await db.getClients();
-      const client = clients.find(c => c.id === project.clientId);
       const newCS: CaseStudy = {
         id: `cs-${Date.now()}`,
         projectId: project.id,

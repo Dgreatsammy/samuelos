@@ -96,17 +96,27 @@ export default function OutreachEngine({ prospects, selectedProspect, onClearSel
   };
 
   const handleApproveOutreach = async (item: Outreach) => {
+    const statusUpper = (item.status || '').toUpperCase().replace(/_/g, ' ');
+    if (statusUpper !== 'READY FOR APPROVAL' && statusUpper !== 'AWAITING APPROVAL') {
+      alert('Outreach draft must be in "READY FOR APPROVAL" or "AWAITING APPROVAL" status before it can be approved.');
+      return;
+    }
     try {
       const updated: Outreach = { ...item, status: 'APPROVED' };
       await api.saveOutreach(updated);
       loadOutreaches();
       alert(`Outreach draft for ${prospects.find(p => p.id === item.prospectId)?.businessName || 'prospect'} approved!`);
-    } catch (err) {
-      alert('Failed to approve outreach draft.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to approve outreach draft.');
     }
   };
 
   const handleMarkAsManuallySent = async (item: Outreach) => {
+    const statusUpper = (item.status || '').toUpperCase().replace(/_/g, ' ');
+    if (statusUpper !== 'APPROVED') {
+      alert('Outreach must be in "APPROVED" status before it can be marked as manually sent.');
+      return;
+    }
     const prospect = prospects.find(p => p.id === item.prospectId);
     const bizName = prospect ? prospect.businessName : 'Prospect';
     const confirmed = window.confirm(
@@ -129,8 +139,8 @@ export default function OutreachEngine({ prospects, selectedProspect, onClearSel
 
       loadOutreaches();
       alert(`Outreach marked as manually sent. Lead stage updated to "Contacted".`);
-    } catch (err) {
-      alert('Failed to mark outreach as manually sent.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to mark outreach as manually sent.');
     }
   };
 
@@ -312,22 +322,29 @@ export default function OutreachEngine({ prospects, selectedProspect, onClearSel
 
                   {/* Human Control Actions */}
                   <div className="flex items-center justify-end gap-2 pt-1">
-                    {item.status !== 'APPROVED' && item.status !== 'SENT' && (
-                      <button
-                        onClick={() => handleApproveOutreach(item)}
-                        className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold rounded cursor-pointer"
-                      >
-                        Approve Draft
-                      </button>
-                    )}
-                    {item.status !== 'SENT' && (
-                      <button
-                        onClick={() => handleMarkAsManuallySent(item)}
-                        className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-mono font-bold rounded cursor-pointer"
-                      >
-                        Mark as Manually Sent
-                      </button>
-                    )}
+                    {(() => {
+                      const norm = (item.status || '').toUpperCase().replace(/_/g, ' ');
+                      return (
+                        <>
+                          {(norm === 'READY FOR APPROVAL' || norm === 'AWAITING APPROVAL') && (
+                            <button
+                              onClick={() => handleApproveOutreach(item)}
+                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold rounded cursor-pointer"
+                            >
+                              Approve Draft
+                            </button>
+                          )}
+                          {norm === 'APPROVED' && (
+                            <button
+                              onClick={() => handleMarkAsManuallySent(item)}
+                              className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-mono font-bold rounded cursor-pointer"
+                            >
+                              Mark as Manually Sent
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               );

@@ -1,5 +1,5 @@
 import { 
-  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, DiscoveryMeeting, Proposal 
+  Service, Offer, Prospect, Audit, Outreach, Client, Project, CaseStudy, CareerEntry, KnowledgeItem, DiscoveryMeeting, Proposal, RevenueRecord 
 } from '../types';
 import { auth } from './firebase';
 
@@ -281,5 +281,19 @@ export const api = {
   },
   async deleteProposal(id: string): Promise<void> {
     return fetchAPI(`/proposals/${id}`, { method: 'DELETE' });
+  },
+
+  // Revenue Records
+  async getRevenueRecords(): Promise<RevenueRecord[]> {
+    return fetchAPI<RevenueRecord[]>('/revenue-records');
+  },
+  async saveRevenueRecord(record: RevenueRecord): Promise<{ success: boolean; record: RevenueRecord }> {
+    return fetchAPI<{ success: boolean; record: RevenueRecord }>('/revenue-records', {
+      method: 'POST',
+      body: JSON.stringify(record),
+    });
+  },
+  async deleteRevenueRecord(id: string): Promise<void> {
+    return fetchAPI(`/revenue-records/${id}`, { method: 'DELETE' });
   }
 };
